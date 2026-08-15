@@ -94,11 +94,14 @@ body{
   font-family:var(--body);font-size:14.5px;color:var(--ink);background:var(--bg);
   background-image:var(--tex);background-size:var(--tex-size);background-attachment:fixed;
   min-height:100vh;line-height:1.5;
-  padding-bottom:calc(70px + env(safe-area-inset-bottom));
+  padding-bottom:calc(100px + env(safe-area-inset-bottom));
 }
 ::selection{background:var(--accent);color:var(--bg)}
 /* ---------- Header ---------- */
-header{padding:14px 16px 0;border-bottom:1px solid var(--line)}
+header{
+  padding:calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
+  border-bottom:1px solid var(--line);
+}
 .hd-top{display:flex;justify-content:space-between;align-items:baseline;max-width:980px;margin:0 auto;gap:10px;flex-wrap:wrap}
 .hd-title{font-family:var(--display);font-weight:700;font-size:clamp(18px,4.4vw,26px);letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
 .hd-title span{color:var(--accent)}
@@ -106,27 +109,30 @@ header{padding:14px 16px 0;border-bottom:1px solid var(--line)}
 .hd-streak b{color:var(--accent2);font-size:13px}
 .sysline{max-width:980px;margin:3px auto 0;font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sysline b{color:var(--accent);font-weight:500}
-#ascension{display:block;width:100%;max-width:980px;margin:6px auto 0;height:88px}
+#ascension{display:block;width:100%;max-width:980px;margin:6px auto 0;height:38px;cursor:pointer}
 .hd-alt{max-width:980px;margin:0 auto;display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:0 0 10px;flex-wrap:wrap}
 .hd-alt span:nth-child(2){color:var(--accent2)}
 /* ---------- Navigation ---------- */
 nav{
   position:fixed;bottom:0;left:0;right:0;z-index:60;
   background:var(--bg);border-top:1px solid var(--line);
-  display:flex;justify-content:space-around;
-  padding:7px 4px calc(7px + env(safe-area-inset-bottom));
+  display:flex;
+  padding:7px calc(2px + env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) calc(2px + env(safe-area-inset-left));
 }
 nav button{
-  font-family:var(--display);font-weight:600;font-size:11.5px;letter-spacing:.10em;text-transform:uppercase;
+  flex:1 1 0;min-width:0;
+  font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.03em;text-transform:uppercase;
   background:none;border:none;color:var(--dim);cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 8px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;
+  -webkit-tap-highlight-color:transparent;
 }
-nav button .ico{font-family:var(--mono);font-size:9px;letter-spacing:.08em;opacity:.65}
+nav button>span:last-child,nav button{white-space:nowrap}
+nav button .ico{font-family:var(--mono);font-weight:500;font-size:8.5px;letter-spacing:.06em;opacity:.6}
 nav button.active{color:var(--ink)}
 nav button.active .ico{color:var(--accent);opacity:1}
-nav button.active::after{content:"";width:100%;height:2px;background:var(--accent);margin-top:3px;box-shadow:var(--glow)}
+nav button.active::after{content:"";width:70%;height:2px;background:var(--accent);margin-top:3px;box-shadow:var(--glow)}
 /* ---------- Layout ---------- */
-main{max-width:980px;margin:0 auto;padding:16px 14px 30px}
+main{max-width:980px;margin:0 auto;padding:16px calc(14px + env(safe-area-inset-right)) 30px calc(14px + env(safe-area-inset-left))}
 section.page{display:none}
 section.page.visible{display:block;animation:fadein .16s ease}
 @keyframes fadein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
@@ -255,6 +261,23 @@ ul.courses li b{font-family:var(--mono);color:var(--accent)}
 }
 .actpreview b{color:var(--accent2);font-size:15px}
 tr.ext td:nth-child(2){color:var(--accent)}
+/* ---------- Programme spatial ---------- */
+.sp-res{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
+.sp-res>div{border:1px solid var(--line);border-radius:var(--r);padding:7px 4px;text-align:center;background:var(--panel2)}
+.sp-res b{display:block;font-family:var(--display);font-size:15px;color:var(--accent)}
+.sp-res span{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+.sp-sondes{display:flex;flex-direction:column;gap:7px}
+.sp-slot{border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:var(--r);padding:8px 10px;background:var(--panel2)}
+.sp-slot.libre{border-left-color:var(--line);opacity:.75}
+.sp-slot.pret{border-left-color:var(--accent2);box-shadow:var(--glow)}
+.sp-cible{display:block;font-family:var(--display);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.09em}
+.sp-slot .cote-bar{margin:6px 0 4px}
+.sp-chap{margin-top:12px;padding:10px;border:1px dashed var(--line);border-radius:var(--r)}
+.sp-chap b{display:block;font-family:var(--display);font-size:14px;text-transform:uppercase;letter-spacing:.09em;margin:2px 0 5px}
+.sp-mod{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.sp-mod.fait{opacity:.6}
+.sp-manque{color:var(--danger)}
+#dlgAtelier{max-width:560px}
 /* ---------- Débriefing ---------- */
 .dbg-indice{display:flex;gap:14px;align-items:center;margin-bottom:14px}
 .dbg-num{font-family:var(--display);font-weight:700;font-size:40px;color:var(--accent);line-height:1}
@@ -286,12 +309,15 @@ table.mini{width:100%;border-collapse:collapse;font-size:13px}
 table.mini td,table.mini th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left}
 dialog{
   border:1px solid var(--accent);border-radius:var(--r);background:var(--panel);color:var(--ink);
-  max-width:520px;width:calc(100% - 32px);padding:16px;box-shadow:var(--glow);
+  max-width:520px;width:calc(100% - 28px);padding:16px;box-shadow:var(--glow);
+  max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  margin-top:calc(20px + env(safe-area-inset-top));
 }
 dialog::backdrop{background:rgba(0,0,0,.78)}
 dialog h2{font-size:14px}
 .toast{
-  position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  position:fixed;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));transform:translateX(-50%);
   background:var(--panel2);color:var(--ink);padding:11px 18px;border-radius:var(--r);
   border:1px solid var(--accent);border-left:3px solid var(--accent2);
   font-family:var(--body);font-weight:500;font-size:12.5px;letter-spacing:.02em;z-index:230;
@@ -300,10 +326,25 @@ dialog h2{font-size:14px}
 }
 .toast.show{opacity:1}
 .toast .hand{color:var(--accent2);font-size:10px;letter-spacing:.1em}
+@media(max-width:760px){
+  input,select,textarea{font-size:16px}
+  .dbg-kpi{gap:6px}
+  .dbg-kpi>div{padding:7px 4px}
+  table.mini{font-size:12px}
+  table.mini td{padding:6px 3px}
+  .skins{gap:6px}
+  .skin{padding:7px}
+}
+@media(max-width:400px){
+  nav button{font-size:10px;letter-spacing:0}
+  nav button .ico{font-size:8px}
+}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(min-width:760px){
   body{padding-bottom:30px}
-  nav{position:sticky;top:0;bottom:auto;border-top:none;border-bottom:1px solid var(--line);justify-content:center;gap:22px}
+  nav{position:sticky;top:0;bottom:auto;border-top:none;border-bottom:1px solid var(--line);justify-content:center;gap:22px;padding-bottom:7px}
+  nav button{flex:0 0 auto;padding:4px 12px;font-size:12px;letter-spacing:.06em}
+  .toast{bottom:28px}
 }
 </style>
 </head>
@@ -314,7 +355,7 @@ dialog h2{font-size:14px}
     <div class="hd-streak" id="hdStreak"></div>
   </div>
   <div class="sysline">Opérateur <b>DEXYRAT</b> ▸ systèmes nominaux ▸ <span id="sysClock"></span></div>
-  <svg id="ascension" viewBox="0 0 980 88" preserveAspectRatio="none" aria-label="Trajectoire de mission"></svg>
+  <svg id="ascension" viewBox="0 0 980 38" preserveAspectRatio="none" aria-label="Sondes en vol" onclick="document.querySelector('[data-page=base]').click();window.scrollTo({top:0,behavior:'smooth'})"></svg>
   <div class="hd-alt"><span id="hdCamp"></span><span id="hdAlt"></span><span id="hdNext"></span></div>
 </header>
 
@@ -330,6 +371,7 @@ dialog h2{font-size:14px}
 
 <!-- ================= CAMP DE BASE ================= -->
 <section class="page visible" id="page-base">
+  <div class="card" id="carteSpatiale"></div>
   <div class="card" id="baseQuete"></div>
   <div class="grid2">
     <div class="card" id="baseSeance"></div>
@@ -535,6 +577,22 @@ dialog h2{font-size:14px}
   <button class="btn" id="dbgFermer">Fermer</button>
 </dialog>
 
+<!-- Dialog lancement de sonde -->
+<dialog id="dlgSonde">
+  <h2>Lancer une sonde</h2>
+  <div id="dlgSondeBody"></div>
+  <div class="spacer"></div>
+  <button class="btn ghost" id="sondeFermer">Fermer</button>
+</dialog>
+
+<!-- Dialog atelier -->
+<dialog id="dlgAtelier">
+  <h2>Atelier de construction</h2>
+  <div id="dlgAtelierBody"></div>
+  <div class="spacer"></div>
+  <button class="btn ghost" id="atelierFermer">Fermer</button>
+</dialog>
+
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -570,6 +628,7 @@ const DEFAULTS = {
   prs: {},                     // exoNom -> poids max
   pesees: [],                  // {d, kg, mg}
   analyses: [],                // débriefings de séance
+  jeu: null,                   // programme spatial
   muscles: {},                 // zone -> {pts, last, n}
   recettes: [],                // {id, nom, type, kcal, prot, ing:[{q,u,n}]}
   semaine: null,               // {debut, jours:[{d, slots:{petitdej,dej,diner,collation}}]}
@@ -681,6 +740,10 @@ const JALONS = [
   {id:"q1",       ico:"★", nom:"Premier ordre",      ds:"Un ordre de mission bouclé",  test:()=>!!S.jalons._q1},
   {id:"ext1",     ico:"⬡", nom:"Grand air",         ds:"Première sortie consignée",   test:()=>S.histoSeances.filter(h=>h.ext).length>=1},
   {id:"ext10",    ico:"⬢", nom:"Baroudeur",         ds:"10 sorties consignées",       test:()=>S.histoSeances.filter(h=>h.ext).length>=10},
+  {id:"sp1",      ico:"➤", nom:"Premier lancement",  ds:"Une sonde envoyée",           test:()=>!!(S.jeu&&S.jeu.sondesTotal>=1)},
+  {id:"sp2",      ico:"⌬", nom:"Lanceur assemblé",   ds:"Chapitre 1 terminé",          test:()=>!!(S.jeu&&S.jeu.chapitre>=1)},
+  {id:"sp3",      ico:"☾", nom:"Base lunaire",       ds:"Chapitre 3 terminé",          test:()=>!!(S.jeu&&S.jeu.chapitre>=3)},
+  {id:"sp4",      ico:"♂", nom:"Terraformation",     ds:"Programme spatial accompli",  test:()=>!!(S.jeu&&S.jeu.chapitre>=5)},
   {id:"alp",      ico:"◐", nom:"Orbite haute",      ds:"1 800 pts de mission",          test:()=>S.altitude>=1800},
   {id:"refuge",   ico:"◑", nom:"Alunissage",        ds:"3 000 pts de mission",          test:()=>S.altitude>=3000},
   {id:"sommet",   ico:"✧", nom:"Espace profond",    ds:"9 000 pts de mission",         test:()=>S.altitude>=9000},
@@ -705,38 +768,42 @@ function renderHeader(){
   $("#hdAlt").textContent = Math.round(S.altitude)+" PTS DE MISSION";
   $("#hdNext").textContent = n ? `CAP SUIVANT : ${n.nom} — ${n.alt} PTS` : "ESPACE PROFOND ATTEINT";
 
-  // Trajectoire de mission : ligne + jalons planétaires + vaisseau
-  const W=980, H=88, padL=16, padR=16;
-  const maxAlt = CAMPS[CAMPS.length-1].alt;
-  const xs = a => padL + (W-padL-padR)*(a/maxAlt);
-  const y = 46;
-  const prog = Math.min(S.altitude,maxAlt);
-  let svg = "";
-  // trajectoire de fond (pointillée)
-  svg += `<line x1="${xs(0)}" y1="${y}" x2="${xs(maxAlt)}" y2="${y}" stroke="var(--line)" stroke-width="2" stroke-dasharray="5 5"/>`;
-  // portion parcourue
-  svg += `<line x1="${xs(0)}" y1="${y}" x2="${xs(prog)}" y2="${y}" stroke="var(--accent)" stroke-width="2.5"/>`;
-  // jalons
-  CAMPS.forEach((k,i)=>{
-    const atteint = S.altitude>=k.alt;
-    const x=xs(k.alt);
-    const rr = 3 + i*0.9;
-    const col = atteint?"var(--accent)":"var(--line)";
-    svg += `<circle cx="${x}" cy="${y}" r="${rr}" fill="${atteint?"var(--accent)":"var(--bg)"}" stroke="${col}" stroke-width="1.6"/>`;
-    if(atteint && k.alt>0) svg += `<circle cx="${x}" cy="${y}" r="${rr+4}" fill="none" stroke="var(--accent)" stroke-width="0.8" opacity="0.35"/>`;
-    const anchor = i===0?"start":i===CAMPS.length-1?"end":"middle";
-    svg += `<text x="${x}" y="${y-14}" font-size="9" letter-spacing="1.2" fill="${atteint?"var(--accent)":"var(--dim)"}" text-anchor="${anchor}" font-family="IBM Plex Mono">${k.code}</text>`;
-    if(i%2===0 || i===CAMPS.length-1)
-      svg += `<text x="${x}" y="${y+22}" font-size="8" letter-spacing=".9" fill="${atteint?"var(--ink)":"var(--dim)"}" text-anchor="${anchor}" font-family="IBM Plex Mono">${k.nom}</text>`;
-  });
-  // vaisseau en position
-  const px=xs(prog);
-  svg += `<g transform="translate(${px},${y})">
-    <path d="M 0 -9 L 5 3 L 0 0.5 L -5 3 Z" fill="var(--accent2)"/>
-    <line x1="0" y1="3" x2="0" y2="9" stroke="var(--accent2)" stroke-width="1.4" opacity=".55"/>
-  </g>`;
+  // Sondes en vol : une voie par emplacement
+  const host=$("#ascension");
+  const W=Math.max(300, Math.round((host&&host.clientWidth)||980));
+  const compact=W<620;
+  const j=(typeof jeu==="function")?jeu():{sondes:[],tokens:0};
+  const slots=(typeof nbSlots==="function")?nbSlots():1;
+  const voieH=24, H=14+slots*voieH;
+  if(host){ host.setAttribute("viewBox",`0 0 ${W} ${H}`); host.style.height=H+"px"; }
+  const xA=compact?58:88, xB=W-(compact?52:76);
+  let svg="";
+  for(let i=0;i<slots;i++){
+    const y=14+i*voieH;
+    const s=j.sondes[i];
+    if(!s){
+      svg+=`<line x1="${xA}" y1="${y}" x2="${xB}" y2="${y}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="3 5"/>`;
+      svg+=`<text x="0" y="${y+3.5}" font-size="${compact?9:10}" fill="var(--dim)" font-family="IBM Plex Mono">LIBRE</text>`;
+      svg+=`<text x="${W}" y="${y+3.5}" font-size="${compact?9:10}" fill="var(--dim)" text-anchor="end" font-family="IBM Plex Mono">${j.tokens>0?"PRÊT":"—"}</text>`;
+      continue;
+    }
+    const cible=(typeof CIBLES!=="undefined")?CIBLES.find(x=>x.id===s.cible):null;
+    const e=etatSonde(s);
+    const nom=(cible?cible.nom:"?").toUpperCase().slice(0,compact?9:14);
+    svg+=`<line x1="${xA}" y1="${y}" x2="${xB}" y2="${y}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="3 5"/>`;
+    const xp=xA+(xB-xA)*e.pct;
+    svg+=`<line x1="${xA}" y1="${y}" x2="${xp}" y2="${y}" stroke="var(--accent)" stroke-width="2"/>`;
+    svg+=`<circle cx="${xB}" cy="${y}" r="3.5" fill="none" stroke="${e.fini?"var(--accent2)":"var(--dim)"}" stroke-width="1.5"/>`;
+    svg+=`<g transform="translate(${xp},${y})"><path d="M 0 -5 L 4 4 L 0 1.5 L -4 4 Z" fill="var(--accent2)" transform="rotate(90)"/></g>`;
+    svg+=`<text x="0" y="${y+3.5}" font-size="${compact?9:10}" fill="var(--ink)" font-family="IBM Plex Mono">${nom}</text>`;
+    svg+=`<text x="${W}" y="${y+3.5}" font-size="${compact?9:10}" fill="${e.fini?"var(--accent2)":"var(--dim)"}" text-anchor="end" font-family="IBM Plex Mono">${e.fini?"RETOUR":fmtDuree(e.reste)}</text>`;
+  }
   $("#ascension").innerHTML = svg;
 }
+
+let _rsz=null;
+window.addEventListener("resize",()=>{ clearTimeout(_rsz); _rsz=setTimeout(()=>{ if(typeof S!=="undefined"&&S) renderHeader(); },180); });
+window.addEventListener("orientationchange",()=>setTimeout(()=>{ if(typeof S!=="undefined"&&S) renderHeader(); },260));
 
 /* ============ Habillages ============ */
 const SKINS=[
@@ -1014,6 +1081,7 @@ function terminerSeance(s){
   const bilan=construireBilan(s,setsMap,dureeMin,libre,musclesAvant,prs);
   const an=enregistrerAnalyse(bilan);
   gagner(120, `Mission « ${s.nom} » accomplie`);
+  gagnerJeton(1,"Mission accomplie");
   setTimeout(()=>{ ouvrirDebrief(an.id); renderAnalyses(); },600);
   if(prs.length) setTimeout(()=>toast(prs.join(" · "),"Nouveau record"),1600);
   if(bonus.length) setTimeout(()=>toast("Bonus régularité ×1,25 : "+bonus.map(z=>ZONES.find(x=>x[0]===z)[1]).join(", ")),3000);
@@ -1551,6 +1619,7 @@ $("#actValider").onclick=()=>{
   $("#dlgActivite").close();
   const an=enregistrerAnalyseSortie(nom,actDraft.min,it.nom,zones,pts);
   gagner(pts, `${nom} consignée`);
+  gagnerJeton(1,"Sortie consignée");
   setTimeout(()=>{ ouvrirDebrief(an.id); renderAnalyses(); },600);
   renderSeances();
 };
@@ -1803,6 +1872,251 @@ function renderAnalyses(){
 }
 $("#dbgFermer").onclick=()=>$("#dlgDebrief").close();
 "use strict";
+/* ============ Programme spatial (jeu de progression) ============ */
+
+const RES=[["alliage","Alliage","▰"],["composants","Composants","◈"],["glace","Glace","❋"]];
+
+const CIBLES=[
+  {id:"orbite",   nom:"Orbite basse",       h:2,  chap:0, gains:{alliage:[8,14]}},
+  {id:"debris",   nom:"Ceinture de débris", h:4,  chap:0, gains:{alliage:[14,22],composants:[6,10]}},
+  {id:"asteroide",nom:"Astéroïde 2004-KM",  h:8,  chap:0, gains:{alliage:[30,45],composants:[12,20]}},
+  {id:"comete",   nom:"Comète glacée",      h:12, chap:0, gains:{glace:[40,60],composants:[8,14]}},
+  {id:"lune",     nom:"Lune",               h:24, chap:2, gains:{alliage:[60,90],composants:[40,60],glace:[20,30]}},
+  {id:"mars",     nom:"Mars",               h:36, chap:4, gains:{alliage:[100,140],composants:[80,110],glace:[50,70]}},
+];
+
+const CHAPITRES=[
+  {id:"lanceur", nom:"Assemblage du lanceur", ds:"Construire le véhicule capable de quitter l'atmosphère.",
+   modules:[
+     {id:"structure", nom:"Structure porteuse",  cout:{alliage:40}},
+     {id:"propulsion",nom:"Moteur principal",    cout:{alliage:60,composants:20}},
+     {id:"avionique", nom:"Avionique de vol",    cout:{alliage:30,composants:40}},
+     {id:"bouclier",  nom:"Bouclier thermique",  cout:{alliage:70,composants:15}},
+   ], gain:"Second emplacement de sonde"},
+
+  {id:"carburant", nom:"Production de carburant", ds:"Transformer la glace en ergols pour viser la Lune.",
+   modules:[
+     {id:"reservoir",    nom:"Réservoirs cryogéniques", cout:{alliage:50,composants:20}},
+     {id:"electrolyseur",nom:"Électrolyseur",           cout:{composants:40,glace:60}},
+     {id:"ergols",       nom:"Plein d'ergols",          cout:{glace:80,composants:20}},
+   ], gain:"Sonde lunaire débloquée"},
+
+  {id:"lunaire", nom:"Base lunaire", ds:"Installer une présence permanente dans la mer de la Tranquillité.",
+   modules:[
+     {id:"habitat", nom:"Module d'habitation", cout:{alliage:120,composants:40}},
+     {id:"solaire", nom:"Champ photovoltaïque",cout:{alliage:60,composants:80}},
+     {id:"foreuse", nom:"Foreuse à régolithe",  cout:{alliage:100,composants:50}},
+     {id:"serre",   nom:"Serre hydroponique",   cout:{alliage:80,composants:60,glace:40}},
+   ], gain:"Troisième emplacement de sonde"},
+
+  {id:"mars", nom:"Cap sur Mars", ds:"Assembler le vaisseau interplanétaire et franchir le vide.",
+   modules:[
+     {id:"vaisseau",  nom:"Vaisseau interplanétaire", cout:{alliage:200,composants:120}},
+     {id:"reserves",  nom:"Réserves de mission",      cout:{glace:150,composants:60}},
+     {id:"atterrisseur",nom:"Module d'atterrissage",  cout:{alliage:180,composants:90}},
+   ], gain:"Sonde martienne débloquée"},
+
+  {id:"terra", nom:"Terraformation", ds:"Rendre Mars habitable. L'œuvre d'une vie.",
+   modules:[
+     {id:"atmo",   nom:"Usine atmosphérique", cout:{alliage:300,composants:200}},
+     {id:"eau",    nom:"Réservoirs d'eau",    cout:{glace:250}},
+     {id:"dome",   nom:"Dôme végétal",        cout:{alliage:200,composants:150,glace:120}},
+     {id:"colonie",nom:"Première colonie",    cout:{alliage:400,composants:300,glace:200}},
+   ], gain:"Programme accompli"},
+];
+
+const JEU_DEF={tokens:0,res:{alliage:0,composants:0,glace:0},sondes:[],construits:{},chapitre:0,sondesTotal:0};
+function jeu(){
+  if(!S.jeu) S.jeu=JSON.parse(JSON.stringify(JEU_DEF));
+  S.jeu.res=Object.assign({alliage:0,composants:0,glace:0},S.jeu.res||{});
+  if(!Array.isArray(S.jeu.sondes)) S.jeu.sondes=[];
+  if(!S.jeu.construits) S.jeu.construits={};
+  return S.jeu;
+}
+function nbSlots(){ const c=jeu().chapitre; return 1+(c>=1?1:0)+(c>=3?1:0); }
+function ciblesDispo(){ return CIBLES.filter(c=>jeu().chapitre>=c.chap); }
+function chapitreCourant(){ return CHAPITRES[Math.min(jeu().chapitre,CHAPITRES.length-1)]; }
+function programmeFini(){ return jeu().chapitre>=CHAPITRES.length; }
+
+/* --- jetons de lancement : gagnés uniquement par l'effort réel --- */
+function gagnerJeton(n,raison){
+  const j=jeu();
+  j.tokens=Math.min(6,j.tokens+(n||1));
+  save();
+  setTimeout(()=>toast(`${n>1?n+" jetons":"Jeton"} de lancement disponible${n>1?"s":""}`,raison||""),3400);
+  renderSpatial(); renderHeader();
+}
+
+/* --- sondes --- */
+function etatSonde(s){
+  const fin=s.depart+s.duree;
+  const now=Date.now();
+  return {fini:now>=fin, reste:Math.max(0,fin-now), pct:Math.max(0,Math.min(1,(now-s.depart)/s.duree))};
+}
+function fmtDuree(ms){
+  const m=Math.round(ms/60000);
+  if(m<60) return m+" min";
+  const h=Math.floor(m/60), r=m%60;
+  return r?`${h} h ${String(r).padStart(2,"0")}`:`${h} h`;
+}
+function lancerSonde(cibleId){
+  const j=jeu();
+  const c=CIBLES.find(x=>x.id===cibleId); if(!c) return;
+  if(j.tokens<1){ toast("Aucun jeton — accomplis une mission"); return; }
+  if(j.sondes.length>=nbSlots()){ toast("Tous les emplacements sont occupés"); return; }
+  j.tokens--; j.sondesTotal=(j.sondesTotal||0)+1;
+  j.sondes.push({id:uid(),cible:c.id,depart:Date.now(),duree:c.h*3600*1000});
+  save(); checkJalons();
+  $("#dlgSonde")&&$("#dlgSonde").close();
+  toast(`Sonde en route vers ${c.nom} — retour dans ${c.h} h`,"Lancement");
+  renderSpatial(); renderHeader();
+}
+function recolterSondes(){
+  const j=jeu();
+  const prets=j.sondes.filter(s=>etatSonde(s).fini);
+  if(!prets.length){ toast("Aucune sonde revenue"); return; }
+  const total={};
+  let decouverte=false;
+  for(const s of prets){
+    const c=CIBLES.find(x=>x.id===s.cible); if(!c) continue;
+    for(const [r,[a,b]] of Object.entries(c.gains)){
+      const v=a+Math.floor(Math.random()*(b-a+1));
+      total[r]=(total[r]||0)+v;
+      j.res[r]=(j.res[r]||0)+v;
+    }
+    if(Math.random()<0.08){ decouverte=true; j.res.composants+=15; total.composants=(total.composants||0)+15; }
+  }
+  j.sondes=j.sondes.filter(s=>!etatSonde(s).fini);
+  save();
+  const txt=Object.entries(total).map(([r,v])=>`+${v} ${RES.find(x=>x[0]===r)[1]}`).join(" · ");
+  toast(txt, decouverte?"Récolte + découverte !":"Récolte");
+  renderSpatial(); renderHeader(); renderCarnet();
+}
+
+/* --- construction --- */
+function peutConstruire(m){
+  const j=jeu();
+  return Object.entries(m.cout).every(([r,v])=>(j.res[r]||0)>=v);
+}
+function construire(chapId,modId){
+  const ch=CHAPITRES.find(c=>c.id===chapId); if(!ch) return;
+  const m=ch.modules.find(x=>x.id===modId); if(!m) return;
+  const j=jeu();
+  if(j.construits[chapId+"/"+modId]){ return; }
+  if(!peutConstruire(m)){ toast("Matériaux insuffisants"); return; }
+  for(const [r,v] of Object.entries(m.cout)) j.res[r]-=v;
+  j.construits[chapId+"/"+modId]=todayKey();
+  save();
+  toast(m.nom+" assemblé","Construction");
+  // chapitre terminé ?
+  const fini=ch.modules.every(x=>j.construits[chapId+"/"+x.id]);
+  if(fini && CHAPITRES[j.chapitre] && CHAPITRES[j.chapitre].id===chapId){
+    j.chapitre++;
+    save(); checkJalons();
+    setTimeout(()=>toast(`${ch.nom} — terminé. ${ch.gain}.`,"Chapitre accompli"),1200);
+  }
+  renderAtelier(); renderSpatial(); renderHeader(); renderCarnet();
+}
+
+/* ============ Rendu : carte du tableau de bord ============ */
+function renderSpatial(){
+  const w=$("#carteSpatiale"); if(!w) return;
+  const j=jeu();
+  const slots=nbSlots();
+  const prets=j.sondes.filter(s=>etatSonde(s).fini).length;
+
+  let h=`<div class="seance-head"><h2 style="margin:0">Programme spatial</h2>
+    <span class="tag">${j.tokens} jeton${j.tokens>1?"s":""}</span></div>`;
+
+  // ressources
+  h+=`<div class="sp-res">${RES.map(([id,nom,ic])=>
+    `<div><b>${ic} ${Math.round(j.res[id]||0)}</b><span>${nom}</span></div>`).join("")}</div>`;
+
+  // sondes
+  h+=`<div class="sp-sondes">`;
+  for(let i=0;i<slots;i++){
+    const s=j.sondes[i];
+    if(!s){
+      h+=`<div class="sp-slot libre"><span class="sp-cible">Emplacement libre</span>
+        <span class="cote-meta">${j.tokens>0?"prêt au lancement":"jeton requis"}</span></div>`;
+    } else {
+      const c=CIBLES.find(x=>x.id===s.cible)||{nom:"?"};
+      const e=etatSonde(s);
+      h+=`<div class="sp-slot ${e.fini?"pret":""}">
+        <span class="sp-cible">${esc(c.nom)}</span>
+        <div class="cote-bar"><i style="width:${Math.round(e.pct*100)}%"></i></div>
+        <span class="cote-meta">${e.fini?"revenue — à récolter":"retour dans "+fmtDuree(e.reste)}</span></div>`;
+    }
+  }
+  h+=`</div>`;
+
+  h+=`<div class="row" style="margin-top:10px">
+    ${prets?`<button class="btn signal" onclick="recolterSondes()">Récolter ${prets} sonde${prets>1?"s":""}</button>`:""}
+    <button class="btn ${prets?"ghost":"signal"}" onclick="ouvrirSonde()" ${(j.tokens<1||j.sondes.length>=slots)?"disabled":""}>Lancer une sonde</button>
+  </div>`;
+
+  // chapitre en cours
+  if(programmeFini()){
+    h+=`<p class="hand" style="margin-top:12px">Programme accompli. Mars est habitable. Tu peux continuer à lancer des sondes pour le plaisir.</p>`;
+  } else {
+    const ch=chapitreCourant();
+    const faits=ch.modules.filter(m=>j.construits[ch.id+"/"+m.id]).length;
+    h+=`<div class="sp-chap">
+      <div class="cote-meta">Chapitre ${j.chapitre+1}/${CHAPITRES.length}</div>
+      <b>${esc(ch.nom)}</b>
+      <div class="cote-bar"><i style="width:${Math.round(faits/ch.modules.length*100)}%"></i></div>
+      <span class="cote-meta">${faits}/${ch.modules.length} modules · ${esc(ch.ds)}</span>
+      <div class="spacer"></div>
+      <button class="btn small" onclick="ouvrirAtelier()">Atelier de construction</button>
+    </div>`;
+  }
+  w.innerHTML=h;
+}
+
+/* ============ Dialogue : lancer une sonde ============ */
+function ouvrirSonde(){
+  const j=jeu();
+  const w=$("#dlgSondeBody");
+  w.innerHTML=`<p class="muted">Un jeton par lancement. Tu en gagnes un à chaque mission ou sortie consignée, deux de plus quand l'ordre de mission hebdo est bouclé.</p>
+  <div class="spacer"></div>
+  ${ciblesDispo().map(c=>{
+    const g=Object.entries(c.gains).map(([r,[a,b]])=>`${a}–${b} ${RES.find(x=>x[0]===r)[1]}`).join(" · ");
+    return `<button class="pick wide" onclick="lancerSonde('${c.id}')" style="margin-bottom:7px">
+      <b>${esc(c.nom)} — ${c.h} h</b><span>${g}</span></button>`;
+  }).join("")}
+  ${jeu().chapitre<2?`<p class="cote-meta">Lune et Mars se débloquent en avançant dans le programme.</p>`:""}`;
+  $("#dlgSonde").showModal();
+}
+
+/* ============ Dialogue : atelier ============ */
+function ouvrirAtelier(){ renderAtelier(); $("#dlgAtelier").showModal(); }
+function renderAtelier(){
+  const j=jeu(), w=$("#dlgAtelierBody"); if(!w) return;
+  let h=`<div class="sp-res">${RES.map(([id,nom,ic])=>
+    `<div><b>${ic} ${Math.round(j.res[id]||0)}</b><span>${nom}</span></div>`).join("")}</div>`;
+  CHAPITRES.forEach((ch,i)=>{
+    const verrou=i>j.chapitre;
+    const faits=ch.modules.filter(m=>j.construits[ch.id+"/"+m.id]).length;
+    h+=`<h3 class="dbg-h" style="opacity:${verrou?.45:1}">${i+1}. ${esc(ch.nom)} ${faits===ch.modules.length?"✓":""}</h3>`;
+    if(verrou){ h+=`<p class="cote-meta">Verrouillé — termine le chapitre précédent.</p>`; return; }
+    for(const m of ch.modules){
+      const fait=!!j.construits[ch.id+"/"+m.id];
+      const ok=peutConstruire(m);
+      const cout=Object.entries(m.cout).map(([r,v])=>{
+        const manque=(j.res[r]||0)<v;
+        return `<span class="${manque?"sp-manque":""}">${v} ${RES.find(x=>x[0]===r)[1]}</span>`;
+      }).join(" · ");
+      h+=`<div class="sp-mod ${fait?"fait":""}">
+        <div><b>${esc(m.nom)}</b><div class="cote-meta">${fait?"assemblé le "+fmtDate(j.construits[ch.id+"/"+m.id]):cout}</div></div>
+        ${fait?`<span class="stamp">OK</span>`:`<button class="btn small ${ok?"signal":"ghost"}" ${ok?"":"disabled"} onclick="construire('${ch.id}','${m.id}')">Construire</button>`}
+      </div>`;
+    }
+  });
+  w.innerHTML=h;
+}
+$("#sondeFermer").onclick=()=>$("#dlgSonde").close();
+$("#atelierFermer").onclick=()=>$("#dlgAtelier").close();
+"use strict";
 /* ============ Synchronisation Supabase ============ */
 const SYNC={busy:false,timer:null,dernier:null};
 
@@ -1912,6 +2226,15 @@ function fusion(L,R){
   for(const x of (L.recettes||[])) mR.set(x.id,x);
   out.recettes=[...mR.values()];
 
+  // programme spatial : version la plus récente, constructions unies
+  if(R.jeu||L.jeu){
+    const base=distant?(R.jeu||L.jeu):(L.jeu||R.jeu);
+    out.jeu=JSON.parse(JSON.stringify(base));
+    out.jeu.construits=Object.assign({},(R.jeu||{}).construits||{},(L.jeu||{}).construits||{});
+    out.jeu.chapitre=Math.max((R.jeu||{}).chapitre||0,(L.jeu||{}).chapitre||0);
+    out.jeu.sondesTotal=Math.max((R.jeu||{}).sondesTotal||0,(L.jeu||{}).sondesTotal||0);
+  }
+
   // configuration : la version la plus récemment modifiée l'emporte
   if(distant){
     if(R.seances&&R.seances.length) out.seances=R.seances;
@@ -1972,7 +2295,7 @@ async function syncMaintenant(silencieux){
 }
 function rerender(){
   renderHeader(); renderBase(); renderSeances(); renderPoids();
-  renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses();
+  renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses(); renderSpatial();
 }
 
 /* ============ Code d'appairage ============ */
@@ -2034,7 +2357,7 @@ function verifierQuete(){
   const q=queteCourante();
   if(!q.claimed && queteComplete(q)){
     q.claimed=true; S.jalons._q1=S.jalons._q1||todayKey(); save();
-    setTimeout(()=>gagner(200,"Ordre de mission hebdo accompli"),1200);
+    setTimeout(()=>{ gagner(200,"Ordre de mission hebdo accompli"); gagnerJeton(2,"Ordre hebdo bouclé"); },1200);
   }
 }
 
@@ -2140,7 +2463,7 @@ function boot(){
   queteCourante();
   applySkin(S.settings.skin||"orbite");
   if(typeof initSyncUI==="function"){ initSyncUI(); renderSync(); if(syncActif()) syncMaintenant(true); }
-  renderHeader(); renderBase(); renderSeances(); renderPoids(); renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses();
+  renderHeader(); renderBase(); renderSeances(); renderPoids(); renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses(); renderSpatial();
   checkJalons();
 }
 function tickClock(){
@@ -2149,6 +2472,7 @@ function tickClock(){
   el.textContent=d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("fr-FR");
 }
 setInterval(tickClock,1000); tickClock();
+setInterval(()=>{ if(typeof jeu==="function"&&jeu().sondes.length){ renderHeader(); renderSpatial(); } },30000);
 load(); boot();
 </script>
 </body></html>
