@@ -460,6 +460,13 @@ dialog h2{font-size:14px}
 <section class="page" id="page-carnet">
   <h2>Insignes</h2>
   <div class="jalons" id="jalonsGrid"></div>
+  <h2>Intelligence artificielle</h2>
+  <div class="card">
+    <p class="muted">Optionnel. Active l'analyse approfondie des séances et la génération des menus. Deux options sont entièrement gratuites.</p>
+    <div class="spacer"></div>
+    <div id="iaConfig"></div>
+  </div>
+
   <h2>Synchronisation iPhone ⇄ PC</h2>
   <div class="card">
     <p class="muted">Relie tes appareils via Supabase. Ces trois réglages restent sur cet appareil et ne sont jamais envoyés en ligne.</p>
@@ -491,8 +498,6 @@ dialog h2{font-size:14px}
     <label class="fld" style="margin-bottom:6px">Habillage de l'interface</label>
     <div class="skins" id="skinPicker"></div>
     <label class="fld">Objectif protéines (g/jour)<input type="number" id="setProt" min="60" max="260"></label>
-    <label class="fld">Clé API Anthropic <span class="muted">(optionnel — active la génération IA des repas)</span>
-      <input type="password" id="setApiKey" placeholder="sk-ant-…" autocomplete="off"></label>
     <div class="row">
       <button class="btn" id="btnSaveSettings">Enregistrer</button>
     </div>
@@ -634,7 +639,7 @@ const DEFAULTS = {
   semaine: null,               // {debut, jours:[{d, slots:{petitdej,dej,diner,collation}}]}
   jalons: {},                  // id -> dateISO
   quete: null,                 // {semaine, done:{seances,pesees,plan}, reward}
-  settings: { prot: 130, apiKey: "", skin: "orbite" },
+  settings: { prot: 130, apiKey: "", skin: "orbite", iaProvider: "gemini", iaModel: "" },
   activite: {},                // dateKey -> true (pour la streak)
 };
 let S;
@@ -841,6 +846,116 @@ $$("nav button").forEach(b=>b.addEventListener("click",()=>{
   $("#page-"+b.dataset.page).classList.add("visible");
   window.scrollTo({top:0});
 }));
+"use strict";
+/* ============ Fournisseurs d'IA ============ */
+const IA_FOURNISSEURS=[
+  {id:"gemini", nom:"Google Gemini", ds:"Gratuit · sans carte bancaire",
+   modele:"gemini-2.5-flash", lien:"aistudio.google.com/apikey",
+   note:"Sur l'offre gratuite, Google peut utiliser les données envoyées pour entraîner ses modèles."},
+  {id:"openrouter", nom:"OpenRouter", ds:"Gratuit · modèles ouverts",
+   modele:"openrouter/free", lien:"openrouter.ai/keys",
+   note:"Environ 50 requêtes par jour sans crédit. Le routeur choisit un modèle gratuit disponible."},
+  {id:"anthropic", nom:"Anthropic (Claude)", ds:"Payant à l'usage",
+   modele:"claude-sonnet-4-6", lien:"console.anthropic.com",
+   note:"Quelques centimes par analyse. Crédit initial de 5 $ minimum."},
+];
+function iaFournisseur(){
+  const id=(S.settings&&S.settings.iaProvider)||"gemini";
+  return IA_FOURNISSEURS.find(f=>f.id===id)||IA_FOURNISSEURS[0];
+}
+function iaModele(){
+  const m=(S.settings&&S.settings.iaModel||"").trim();
+  return m||iaFournisseur().modele;
+}
+function iaPrete(){ return !!((S.settings&&S.settings.apiKey||"").trim()); }
+
+/* --- appel unifié : renvoie du texte brut --- */
+async function appelIA(prompt, maxTokens){
+  const f=iaFournisseur(), modele=iaModele();
+  const key=(S.settings.apiKey||"").trim();
+  const mt=maxTokens||1600;
+  if(!key) throw new Error("clé absente");
+
+  if(f.id==="gemini"){
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modele)}:generateContent`;
+    const r=await fetch(url,{method:"POST",
+      headers:{"Content-Type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],
+        generationConfig:{maxOutputTokens:mt,temperature:0.7}})});
+    if(!r.ok) throw new Error(msgErr("Gemini",r.status));
+    const d=await r.json();
+    const c=d.candidates&&d.candidates[0];
+    return ((c&&c.content&&c.content.parts)||[]).map(x=>x.text||"").join("");
+  }
+
+  if(f.id==="openrouter"){
+    const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+      body:JSON.stringify({model:modele,max_tokens:mt,messages:[{role:"user",content:prompt}]})});
+    if(!r.ok) throw new Error(msgErr("OpenRouter",r.status));
+    const d=await r.json();
+    return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
+  }
+
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":key,
+      "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:modele,max_tokens:mt,messages:[{role:"user",content:prompt}]})});
+  if(!r.ok) throw new Error(msgErr("Claude",r.status));
+  const d=await r.json();
+  return (d.content||[]).map(c=>c.text||"").join("");
+}
+function msgErr(nom,code){
+  if(code===401||code===403) return nom+" : clé refusée";
+  if(code===429) return nom+" : quota atteint, réessaie plus tard";
+  if(code===404) return nom+" : modèle introuvable";
+  return nom+" : erreur "+code;
+}
+/* --- appel attendant du JSON --- */
+async function appelIAJson(prompt, maxTokens){
+  const txt=await appelIA(prompt,maxTokens);
+  const net=txt.replace(/```json|```/g,"").trim();
+  const a=net.indexOf("{"), b=net.lastIndexOf("}");
+  return JSON.parse(a>=0&&b>a?net.slice(a,b+1):net);
+}
+
+/* ============ Réglages ============ */
+function renderIAConfig(){
+  const w=$("#iaConfig"); if(!w) return;
+  const f=iaFournisseur();
+  w.innerHTML=`
+  <div class="pickrow col">${IA_FOURNISSEURS.map(x=>
+    `<button class="pick wide ${f.id===x.id?"on":""}" data-ia="${x.id}"><b>${x.nom}</b><span>${x.ds}</span></button>`).join("")}</div>
+  <p class="cote-meta" style="margin:9px 0">Clé à créer sur <b>${f.lien}</b>. ${f.note}</p>
+  <label class="fld">Clé API<input id="setApiKey" type="password" placeholder="colle ta clé ici" autocomplete="off" value="${esc(S.settings.apiKey||"")}"></label>
+  <label class="fld">Modèle <span class="muted">(modifiable si le nom change)</span>
+    <input id="setModele" placeholder="${esc(f.modele)}" value="${esc(S.settings.iaModel||"")}"></label>
+  <div class="row">
+    <button class="btn" id="iaSave">Enregistrer</button>
+    <button class="btn signal" id="iaTest">Tester la connexion</button>
+  </div>
+  <p class="muted" id="iaEtat" style="margin-top:8px">${iaPrete()?"Clé enregistrée.":"Aucune clé : le bilan technique des séances reste disponible sans IA."}</p>`;
+  w.querySelectorAll("[data-ia]").forEach(b=>b.onclick=()=>{
+    S.settings.iaProvider=b.dataset.ia;
+    S.settings.iaModel="";
+    save(); renderIAConfig();
+  });
+  $("#iaSave").onclick=()=>{
+    S.settings.apiKey=$("#setApiKey").value.trim();
+    S.settings.iaModel=$("#setModele").value.trim();
+    save(); toast("Réglages IA enregistrés"); renderIAConfig();
+  };
+  $("#iaTest").onclick=async ()=>{
+    S.settings.apiKey=$("#setApiKey").value.trim();
+    S.settings.iaModel=$("#setModele").value.trim();
+    save();
+    const e=$("#iaEtat"); e.textContent="Test en cours…";
+    try{
+      const t=await appelIA("Réponds exactement : OK",30);
+      e.textContent=t.trim()?`Connexion réussie avec ${iaFournisseur().nom} (${iaModele()}).`:"Réponse vide — vérifie le modèle.";
+    }catch(err){ e.textContent="Échec — "+err.message; }
+  };
+}
 "use strict";
 /* ============ Zones musculaires & cotation alpine ============ */
 const ZONES = [
@@ -1399,13 +1514,13 @@ $("#btnAddRecette").onclick=()=>editRecette(null);
 
 /* ============ Génération de la semaine ============ */
 $("#btnGenSemaine").onclick=async ()=>{
-  const key=(S.settings.apiKey||"").trim();
-  $("#genStatus").textContent = key ? "Requête intendance en cours…" : "Composition depuis la base locale…";
+  const key=iaPrete();
+  $("#genStatus").textContent = key ? `Requête ${iaFournisseur().nom} en cours…` : "Composition depuis la base locale…";
   $("#btnGenSemaine").disabled=true;
   try{
     const jours = key ? await genSemaineIA(key) : genSemaineLocale();
     poserSemaine(jours);
-    $("#genStatus").textContent = key ? "Semaine générée par l'IA à partir de ta base + tes objectifs." : "Semaine composée depuis ta base de recettes. Ajoute une clé API (onglet Carnet) pour des propositions IA.";
+    $("#genStatus").textContent = key ? "Semaine générée par l'IA à partir de ta base et de tes objectifs." : "Semaine composée depuis ta base locale. Configure une IA gratuite dans le Dossier pour des propositions inédites.";
   }catch(err){
     console.error(err);
     $("#genStatus").textContent="La génération IA a échoué ("+(err.message||"erreur réseau")+"). Repli sur ta base de recettes.";
@@ -1439,35 +1554,27 @@ function genSemaineLocale(){
   return jours;
 }
 async function genSemaineIA(key){
-  const base=S.recettes.map(r=>({id:r.id,nom:r.nom,type:r.type,kcal:r.kcal,prot:r.prot}));
-  const prompt=`Tu es un nutritionniste sportif. Compose un plan de repas de 7 jours (lundi à dimanche) pour un homme en prise de muscle légère : surplus calorique modéré (~2700-2900 kcal/j), objectif ${S.settings.prot} g de protéines/jour, cuisine française simple.
+  const base=S.recettes.map(x=>({id:x.id,nom:x.nom,type:x.type,kcal:x.kcal,prot:x.prot}));
+  const prompt=`Tu es un nutritionniste sportif. Compose un plan de repas de 7 jours (lundi à dimanche) pour un homme en prise de muscle légère : surplus calorique modéré (~2700-2900 kcal/j), objectif ${S.settings.prot} g de protéines/jour, cuisine française simple et économique.
 Base de recettes disponible (à privilégier, réutilise leurs "id") : ${JSON.stringify(base)}
 Créneaux par jour : petitdej, dej, collation, diner.
 Tu peux proposer au maximum 4 nouvelles recettes si la base manque de variété. Chaque nouvelle recette doit avoir : nom, type, kcal, prot, ing (liste de {q, u, n} avec q=quantité numérique, u=unité (g/ml ou vide), n=nom d'ingrédient).
 Réponds UNIQUEMENT avec un JSON valide, sans balises markdown, au format :
 {"nouvelles":[{...}], "jours":[{"slots":{"petitdej":"id","dej":"id","collation":"id","diner":"id"}}, ... 7 éléments]}
 Les valeurs des slots référencent des id de la base OU l'index "n0","n1"… des nouvelles recettes.`;
-  const rep=await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:3000,messages:[{role:"user",content:prompt}]})
-  });
-  if(!rep.ok) throw new Error("API "+rep.status);
-  const data=await rep.json();
-  const txt=(data.content||[]).map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
-  const plan=JSON.parse(txt);
+  const plan=await appelIAJson(prompt,3000);
   const map={};
-  (plan.nouvelles||[]).forEach((r,i)=>{
-    const rec={id:uid(),nom:r.nom,type:r.type||"dej",kcal:+r.kcal||0,prot:+r.prot||0,
-      ing:(r.ing||[]).map(x=>({q:+x.q||1,u:x.u||"",n:String(x.n||"")}))};
+  (plan.nouvelles||[]).forEach((x,i)=>{
+    const rec={id:uid(),nom:x.nom,type:x.type||"dej",kcal:+x.kcal||0,prot:+x.prot||0,
+      ing:(x.ing||[]).map(y=>({q:+y.q||1,u:y.u||"",n:String(y.n||"")}))};
     S.recettes.push(rec); map["n"+i]=rec.id;
   });
   const jours=(plan.jours||[]).slice(0,7).map(j=>{
     const slots={};
     for(const [t] of SLOTS){
-      let v=j.slots?.[t]; if(!v) continue;
+      let v=j.slots?j.slots[t]:null; if(!v) continue;
       if(map[v]) v=map[v];
-      if(S.recettes.find(r=>r.id===v)) slots[t]=v;
+      if(S.recettes.find(x=>x.id===v)) slots[t]=v;
     }
     return {slots};
   });
@@ -1769,11 +1876,11 @@ function renderDebrief(an){
   h+=`<h3 class="dbg-h">Analyse approfondie</h3><div id="dbgIA">`;
   if(an.ia){
     h+=renderIA(an.ia);
-  } else if((S.settings.apiKey||"").trim()){
+  } else if(iaPrete()){
     h+=`<p class="muted">Analyse détaillée par IA à partir de ton historique, ton matériel et tes objectifs.</p>
         <button class="btn signal small" onclick="lancerAnalyseIA('${an.id}')">Lancer l'analyse</button>`;
   } else {
-    h+=`<p class="muted">Ajoute une clé API Anthropic dans l'onglet Dossier pour débloquer l'analyse approfondie (lecture croisée de ton historique, détection de déséquilibres, plan de progression).</p>`;
+    h+=`<p class="muted">Configure une IA gratuite dans l'onglet Dossier pour débloquer l'analyse approfondie : lecture croisée de ton historique, détection de déséquilibres, plan de progression.</p>`;
   }
   h+=`</div>`;
   $("#dlgDebriefBody").innerHTML=h;
@@ -1795,8 +1902,7 @@ function renderIA(ia){
 /* --- Analyse IA --- */
 async function lancerAnalyseIA(id){
   const an=(S.analyses||[]).find(a=>a.id===id); if(!an) return;
-  const key=(S.settings.apiKey||"").trim();
-  if(!key){ toast("Clé API manquante (onglet Dossier)"); return; }
+  if(!iaPrete()){ toast("Aucune IA configurée (onglet Dossier)"); return; }
   const box=$("#dbgIA"); if(box) box.innerHTML=`<p class="muted">Analyse en cours…</p>`;
   try{
     const histo=(S.analyses||[]).filter(a=>a.nom===an.nom&&a.id!==an.id).slice(0,4)
@@ -1838,15 +1944,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans balises markdown :
  "ajustements":[{"exo":"nom","action":"quoi faire précisément","raison":"pourquoi"}],
  "recuperation":"une phrase sur le repos avant la prochaine séance",
  "prochaine":"quelle séance viser ensuite et pourquoi"}`;
-    const rep=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1600,messages:[{role:"user",content:prompt}]})
-    });
-    if(!rep.ok) throw new Error("API "+rep.status);
-    const data=await rep.json();
-    const txt=(data.content||[]).map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
-    an.ia=JSON.parse(txt);
+    an.ia=await appelIAJson(prompt,1600);
     save();
     if(box) box.innerHTML=renderIA(an.ia);
     renderAnalyses();
@@ -2424,13 +2522,12 @@ function renderCarnet(){
   $("#jalonsGrid").innerHTML=JALONS.map(j=>`<div class="jalon ${S.jalons[j.id]?"won":""}">
     <div class="ico">${j.ico}</div><div class="nm">${j.nom}</div><div class="ds">${S.jalons[j.id]?fmtDate(S.jalons[j.id]):j.ds}</div></div>`).join("");
   renderSkinPicker();
+  if(typeof renderIAConfig==="function") renderIAConfig();
   $("#setProt").value=S.settings.prot;
-  $("#setApiKey").value=S.settings.apiKey||"";
   $("#protCible").textContent=S.settings.prot;
 }
 $("#btnSaveSettings").onclick=()=>{
   S.settings.prot=Math.max(60,Math.min(260,+$("#setProt").value||130));
-  S.settings.apiKey=$("#setApiKey").value.trim();
   save(); renderCarnet(); toast("Réglages enregistrés");
 };
 $("#btnExport").onclick=()=>{
