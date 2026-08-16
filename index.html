@@ -151,14 +151,15 @@ h2:first-child{margin-top:0}
 .card::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
 [data-theme="apollo"] .card::before,[data-theme="apollo"] .card::after{display:none}
 .row{display:flex;gap:10px;flex-wrap:wrap}
-.row>*{flex:1}
+.row>*{flex:1 1 150px;min-width:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:520px){.grid2{grid-template-columns:1fr}}
 /* ---------- Boutons ---------- */
 button.btn{
   font-family:var(--display);font-weight:600;font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;
   background:var(--panel2);color:var(--ink);border:1px solid var(--line);
-  border-radius:var(--r);padding:11px 16px;cursor:pointer;transition:all .1s ease;
+  border-radius:var(--r);padding:11px 14px;cursor:pointer;transition:all .1s ease;
+  white-space:normal;overflow-wrap:anywhere;line-height:1.3;min-width:0;
 }
 button.btn:active{transform:translateY(1px)}
 button.btn.signal{background:transparent;color:var(--accent);border-color:var(--accent);box-shadow:var(--glow)}
@@ -176,7 +177,7 @@ input,select,textarea{
 input::placeholder,textarea::placeholder{color:var(--dim);opacity:.6}
 input:focus,select:focus,textarea:focus,button:focus-visible{outline:1.5px solid var(--accent);outline-offset:1px}
 select{appearance:none;-webkit-appearance:none}
-label.fld{display:block;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:10px}
+label.fld{display:block;flex:1 1 152px;min-width:152px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:10px}
 label.fld input,label.fld select{margin-top:4px}
 /* ---------- Étiquettes ---------- */
 .stamp{display:inline-block;font-family:var(--display);font-weight:600;font-size:10.5px;letter-spacing:.16em;
@@ -349,6 +350,9 @@ dialog h2{font-size:14px}
 .toast .hand{color:var(--accent2);font-size:10px;letter-spacing:.1em}
 @media(max-width:760px){
   input,select,textarea{font-size:16px}
+  button.btn{font-size:11.5px;letter-spacing:.05em;padding:11px 10px}
+  button.btn.small{font-size:10px;letter-spacing:.03em;padding:7px 8px}
+  h2{font-size:14px;letter-spacing:.1em}
   .dbg-kpi{gap:6px}
   .dbg-kpi>div{padding:7px 4px}
   table.mini{font-size:12px}
@@ -359,6 +363,11 @@ dialog h2{font-size:14px}
 @media(max-width:400px){
   nav button{font-size:10px;letter-spacing:0}
   nav button .ico{font-size:8px}
+  .row>*{flex:1 1 100%}
+  .row>button.btn.small{flex:1 1 auto}
+  label.fld{min-width:0}
+  .sp-res,.compo{grid-template-columns:1fr 1fr}
+  .sp-res>div:last-child,.compo>div:last-child{grid-column:1/-1}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(min-width:760px){
@@ -411,8 +420,8 @@ dialog h2{font-size:14px}
   <h2>Ordres de mission</h2>
   <div id="listeSeances"></div>
   <div class="row">
-    <button class="btn signal" id="btnSeanceLibre">▶ Mission libre du jour</button>
-    <button class="btn ghost" id="btnAddSeance">+ Nouvel ordre de mission</button>
+    <button class="btn signal" id="btnSeanceLibre">▶ Mission libre</button>
+    <button class="btn ghost" id="btnAddSeance">+ Nouvelle séance</button>
   </div>
   <div class="spacer"></div>
   <div class="row" id="modeProgramme"></div>
@@ -422,7 +431,7 @@ dialog h2{font-size:14px}
   <div class="card flat">
     <p class="muted">Courbatures, fatigue, blessure : consigne la journée. Aucun point gagné, mais ta série continue et l'app adapte ses suggestions.</p>
     <div class="spacer"></div>
-    <button class="btn ghost" id="btnRepos">◦ Consigner une journée de repos</button>
+    <button class="btn ghost" id="btnRepos">◦ Journée de repos</button>
   </div>
   <h2>Sortie extérieure</h2>
   <div class="card flat">
@@ -449,7 +458,7 @@ dialog h2{font-size:14px}
           <select id="inMmUnit" style="max-width:76px"><option value="pct">%</option><option value="kg">kg</option></select>
         </span></label>
     </div>
-    <button class="btn signal" id="btnAddPoids">Consigner la pesée · +15 pts</button>
+    <button class="btn signal" id="btnAddPoids">Consigner · +15 pts</button>
     <p class="muted" style="margin-top:8px">Astuce : la balance affiche le chiffre, tu le notes ici en 2 tapes. Pour recaler l'historique complet, importe le CSV Withings ci-dessous.</p>
   </div>
   <div class="card">
@@ -485,7 +494,7 @@ dialog h2{font-size:14px}
     <p class="muted">Objectif : surplus léger, ≈ <b id="protCible"></b> g de protéines / jour.</p>
     <div class="spacer"></div>
     <div class="row">
-      <button class="btn signal" id="btnGenSemaine">Générer ma semaine · +60 pts</button>
+      <button class="btn signal" id="btnGenSemaine">Générer la semaine · +60 pts</button>
       <button class="btn ghost" id="btnCourses">Liste de courses</button>
     </div>
     <p class="muted" id="genStatus" style="margin-top:6px"></p>
@@ -524,7 +533,7 @@ dialog h2{font-size:14px}
     <div class="spacer"></div>
     <label class="fld" style="margin-bottom:6px">Appairer un second appareil</label>
     <div class="row">
-      <button class="btn ghost small" id="syncCopy">Copier le code d'appairage</button>
+      <button class="btn ghost small" id="syncCopy">Copier le code</button>
     </div>
     <div class="spacer"></div>
     <div class="row">
@@ -547,7 +556,7 @@ dialog h2{font-size:14px}
     </div>
     <div class="spacer"></div>
     <div class="row">
-      <button class="btn ghost" id="btnExport">Exporter mes données (JSON)</button>
+      <button class="btn ghost" id="btnExport">Exporter (JSON)</button>
       <button class="btn ghost" id="btnImport">Importer</button>
       <input type="file" id="inImport" accept=".json" style="display:none">
     </div>
@@ -1185,7 +1194,7 @@ function renderBandes(){
   const w=$("#listeBandes"); if(!w) return;
   w.innerHTML=`<div>${bandes().map(b=>`<span class="tag">${esc(b.nom)} · ${b.kg} kg</span>`).join("")}</div>
     <div class="spacer"></div>
-    <button class="btn ghost small" onclick="ouvrirBandes()">Modifier les résistances</button>`;
+    <button class="btn ghost small" onclick="ouvrirBandes()">Modifier</button>`;
 }
 
 /* --- migration : exercices élastiques existants --- */
@@ -1348,7 +1357,7 @@ function renderSeances(){
         <button class="btn small signal" data-go="${s.id}">Partir</button>
         <button class="btn small ghost" data-edit="${s.id}">Modifier</button>
       </div></div>
-      <details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Voir le détail & les charges</summary>
+      <details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Détail & charges</summary>
       <table class="mini" style="margin-top:6px">${detail}</table></details>`;
     wrap.appendChild(card);
   }
@@ -1412,7 +1421,7 @@ function renderEnCours(){
   }
   html+=`<p class="cote-meta" style="margin-top:10px">${(typeof RETOUR_CALME!=="undefined")?esc(RETOUR_CALME):""}</p>`;
   html+=`<div class="spacer"></div><div class="row">
-    <button class="btn signal" id="btnFinish">Mission accomplie · +120 pts</button>
+    <button class="btn signal" id="btnFinish">Valider · +120 pts</button>
     <button class="btn ghost" id="btnAbandon">Abandonner</button></div></div>`;
   w.innerHTML=html;
   if(typeof brancherEchauf==="function") brancherEchauf(w);
@@ -1563,8 +1572,8 @@ $("#reposValider").onclick=()=>validerRepos();
 function renderModeProgramme(){
   const w=$("#modeProgramme"); if(!w) return;
   w.innerHTML=modeSocle()
-    ? `<button class="btn ghost small" onclick="restaurerProgrammeComplet()">Revenir au programme A / B / C</button>`
-    : `<button class="btn ghost small" onclick="passerEnSeanceUnique()">Mode débutant — une seule séance répétée</button>`;
+    ? `<button class="btn ghost small" onclick="restaurerProgrammeComplet()">Programme A / B / C</button>`
+    : `<button class="btn ghost small" onclick="passerEnSeanceUnique()">Mode débutant · séance unique</button>`;
 }
 "use strict";
 /* ============ Séance socle (mode débutant : une seule séance répétée) ============ */
@@ -2636,7 +2645,7 @@ function renderSpatial(){
       <div class="cote-bar"><i style="width:${Math.round(faits/ch.modules.length*100)}%"></i></div>
       <span class="cote-meta">${faits}/${ch.modules.length} modules · ${esc(ch.ds)}</span>
       <div class="spacer"></div>
-      <button class="btn small" onclick="ouvrirAtelier()">Atelier de construction</button>
+      <button class="btn small" onclick="ouvrirAtelier()">Atelier</button>
     </div>`;
   }
   w.innerHTML=h;
@@ -2986,7 +2995,7 @@ function renderBase(){
     :dejaAujourdhui?`<p class="hand">Mission du jour accomplie. Repos, reprise demain.</p>`
     :S.enCours?`<p>Une mission est en cours.</p><button class="btn signal" onclick="document.querySelector('[data-page=seances]').click()">Reprendre</button>`
     :suggestion?`<p>Mission recommandée :</p><p><b>${esc(suggestion.nom)}</b>${zfLabel?`<br><span class="hand" style="font-size:16px">objectif : renforcer ${zfLabel}</span>`:""}</p><div class="spacer"></div>
-      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer la mission · +120 pts</button>${noteSensible}${noteReprise}${consignes}`
+      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer · +120 pts</button>${noteSensible}${noteReprise}${consignes}`
     :`<p class="muted">Aucune séance au programme.</p>`)+btnSortie;
 
   // Poids
