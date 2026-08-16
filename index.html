@@ -198,6 +198,17 @@ label.fld input,label.fld select{margin-top:4px}
 .set-chip.done{background:var(--accent);color:var(--bg);border-color:var(--accent);box-shadow:var(--glow)}
 .pr-note{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--accent2);letter-spacing:.05em}
 details summary{font-family:var(--mono);color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+/* ---------- Échauffement ---------- */
+.echauf{border:1px dashed var(--accent2);border-radius:var(--r);padding:10px;margin-bottom:12px;background:var(--panel2)}
+.echauf-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px;
+  font-family:var(--display);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent2)}
+.echauf-head b{color:var(--ink)}
+.echauf-item{display:flex;gap:9px;align-items:flex-start;padding:6px 0;font-size:13px;cursor:pointer;border-top:1px solid var(--line)}
+.echauf-item:first-of-type{border-top:none}
+.echauf-item.ok{opacity:.55}
+.echauf-box{flex:0 0 18px;height:18px;border:1px solid var(--dim);border-radius:2px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--bg);background:transparent}
+.echauf-item.ok .echauf-box{background:var(--accent2);border-color:var(--accent2)}
 /* ---------- Aptitude ---------- */
 #cotationGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-bottom:6px}
 .cote{position:relative;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:11px}
@@ -261,6 +272,8 @@ ul.courses li b{font-family:var(--mono);color:var(--accent)}
 }
 .actpreview b{color:var(--accent2);font-size:15px}
 tr.ext td:nth-child(2){color:var(--accent)}
+tr.repos{opacity:.72}
+tr.repos td:nth-child(2){color:var(--dim)}
 /* ---------- Programme spatial ---------- */
 .sp-res{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
 .sp-res>div{border:1px solid var(--line);border-radius:var(--r);padding:7px 4px;text-align:center;background:var(--panel2)}
@@ -392,6 +405,14 @@ dialog h2{font-size:14px}
   <div class="row">
     <button class="btn signal" id="btnSeanceLibre">▶ Mission libre du jour</button>
     <button class="btn ghost" id="btnAddSeance">+ Nouvel ordre de mission</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="row" id="modeProgramme"></div>
+  <h2>Récupération</h2>
+  <div class="card flat">
+    <p class="muted">Courbatures, fatigue, blessure : consigne la journée. Aucun point gagné, mais ta série continue et l'app adapte ses suggestions.</p>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btnRepos">◦ Consigner une journée de repos</button>
   </div>
   <h2>Sortie extérieure</h2>
   <div class="card flat">
@@ -598,6 +619,31 @@ dialog h2{font-size:14px}
   <button class="btn ghost" id="atelierFermer">Fermer</button>
 </dialog>
 
+<!-- Dialog repos -->
+<dialog id="dlgRepos">
+  <h2>Journée de repos</h2>
+  <div id="dlgReposBody"></div>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" id="reposValider">Consigner</button>
+    <button class="btn ghost" id="reposAnnuler">Annuler</button>
+  </div>
+</dialog>
+
+<!-- Dialog échauffement -->
+<dialog id="dlgEchauf">
+  <h2>Échauffement</h2>
+  <p class="muted">Une ligne par étape. Adapte-le à ce qui te fait du bien.</p>
+  <div class="spacer"></div>
+  <textarea id="echTexte" rows="9"></textarea>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" onclick="sauverEchauf()">Enregistrer</button>
+    <button class="btn ghost" onclick="resetEchauf()">Par défaut</button>
+    <button class="btn ghost" onclick="document.getElementById('dlgEchauf').close()">Fermer</button>
+  </div>
+</dialog>
+
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -634,6 +680,7 @@ const DEFAULTS = {
   pesees: [],                  // {d, kg, mg}
   analyses: [],                // débriefings de séance
   jeu: null,                   // programme spatial
+  echauffement: null,          // liste personnalisable
   muscles: {},                 // zone -> {pts, last, n}
   recettes: [],                // {id, nom, type, kcal, prot, ing:[{q,u,n}]}
   semaine: null,               // {debut, jours:[{d, slots:{petitdej,dej,diner,collation}}]}
@@ -729,11 +776,12 @@ function queteComplete(q){
 }
 
 /* ============ Jalons (achievements) ============ */
+function nbMissions(){ return (S.histoSeances||[]).filter(h=>!h.repos).length; }
 const JALONS = [
-  {id:"depart",   ico:"▲", nom:"Décollage",         ds:"Première mission validée",     test:()=>S.histoSeances.length>=1},
-  {id:"s10",      ico:"◈", nom:"10 missions",        ds:"Dix missions au compteur",     test:()=>S.histoSeances.length>=10},
-  {id:"s25",      ico:"❖", nom:"25 missions",        ds:"Le rythme est pris",           test:()=>S.histoSeances.length>=25},
-  {id:"s50",      ico:"✦", nom:"50 missions",        ds:"Vétéran du terrain",           test:()=>S.histoSeances.length>=50},
+  {id:"depart",   ico:"▲", nom:"Décollage",         ds:"Première mission validée",     test:()=>nbMissions()>=1},
+  {id:"s10",      ico:"◈", nom:"10 missions",        ds:"Dix missions au compteur",     test:()=>nbMissions()>=10},
+  {id:"s25",      ico:"❖", nom:"25 missions",        ds:"Le rythme est pris",           test:()=>nbMissions()>=25},
+  {id:"s50",      ico:"✦", nom:"50 missions",        ds:"Vétéran du terrain",           test:()=>nbMissions()>=50},
   {id:"st7",      ico:"◉", nom:"7 j en service",    ds:"Une semaine sans rompre",      test:()=>streak()>=7},
   {id:"st30",     ico:"◎", nom:"30 j en service",   ds:"Un mois de constance",         test:()=>streak()>=30},
   {id:"pr1",      ico:"↑", nom:"Premier record",     ds:"Un PR consigné",               test:()=>Object.keys(S.prs).length>=1},
@@ -745,6 +793,7 @@ const JALONS = [
   {id:"q1",       ico:"★", nom:"Premier ordre",      ds:"Un ordre de mission bouclé",  test:()=>!!S.jalons._q1},
   {id:"ext1",     ico:"⬡", nom:"Grand air",         ds:"Première sortie consignée",   test:()=>S.histoSeances.filter(h=>h.ext).length>=1},
   {id:"ext10",    ico:"⬢", nom:"Baroudeur",         ds:"10 sorties consignées",       test:()=>S.histoSeances.filter(h=>h.ext).length>=10},
+  {id:"recup",    ico:"◦", nom:"Écoute du corps",    ds:"Une journée de repos consignée",test:()=>S.histoSeances.some(h=>h.repos)},
   {id:"sp1",      ico:"➤", nom:"Premier lancement",  ds:"Une sonde envoyée",           test:()=>!!(S.jeu&&S.jeu.sondesTotal>=1)},
   {id:"sp2",      ico:"⌬", nom:"Lanceur assemblé",   ds:"Chapitre 1 terminé",          test:()=>!!(S.jeu&&S.jeu.chapitre>=1)},
   {id:"sp3",      ico:"☾", nom:"Base lunaire",       ds:"Chapitre 3 terminé",          test:()=>!!(S.jeu&&S.jeu.chapitre>=3)},
@@ -957,6 +1006,65 @@ function renderIAConfig(){
   };
 }
 "use strict";
+/* ============ Échauffement ============ */
+const ECHAUF_DEFAUT=[
+  "Rotations articulaires — chevilles, genoux, hanches, épaules, nuque · 60 s, sans à-coups",
+  "Marche sur place ou pas chassés lents · 90 s, jusqu'à avoir un peu chaud",
+  "Cercles de bras + passages de bande au-dessus de la tête · 45 s",
+  "Chat-vache (mobilité du dos, à quatre pattes) · 8 allers-retours lents",
+  "Squat à vide, descente lente · 10 répétitions",
+  "Pompes inclinées mains sur le banc · 8 répétitions faciles",
+];
+const RETOUR_CALME="Retour au calme : 2 à 3 min de respiration lente et d'étirements doux, sans forcer. Ça ne prévient pas les courbatures, mais ça aide à retrouver de l'amplitude et à redescendre en pression.";
+
+function echList(){
+  if(!Array.isArray(S.echauffement)||!S.echauffement.length) S.echauffement=[...ECHAUF_DEFAUT];
+  return S.echauffement;
+}
+function echEtat(){
+  if(!S.enCours) return [];
+  const n=echList().length;
+  if(!Array.isArray(S.enCours.ech)||S.enCours.ech.length!==n) S.enCours.ech=Array(n).fill(false);
+  return S.enCours.ech;
+}
+function echBloc(){
+  const items=echList(), etat=echEtat();
+  const faits=etat.filter(Boolean).length;
+  return `<div class="echauf">
+    <div class="echauf-head">
+      <span>Échauffement · ~5 min <b>${faits}/${items.length}</b></span>
+      <button class="btn ghost small" onclick="ouvrirEchauf()">Modifier</button>
+    </div>
+    ${items.map((t,i)=>`<div class="echauf-item ${etat[i]?"ok":""}" data-ech="${i}">
+      <span class="echauf-box">${etat[i]?"✓":""}</span><span>${esc(t)}</span></div>`).join("")}
+    <div class="cote-meta" style="margin-top:6px">Puis 1 série d'approche à moitié de charge sur le premier exercice, avant les séries comptées.</div>
+  </div>`;
+}
+function brancherEchauf(w){
+  w.querySelectorAll("[data-ech]").forEach(el=>el.onclick=()=>{
+    const i=+el.dataset.ech, etat=echEtat();
+    etat[i]=!etat[i]; save(); renderEnCours();
+  });
+}
+
+/* --- éditeur --- */
+function ouvrirEchauf(){
+  $("#echTexte").value=echList().join("\n");
+  $("#dlgEchauf").showModal();
+}
+function sauverEchauf(){
+  const lignes=$("#echTexte").value.split("\n").map(l=>l.trim()).filter(Boolean);
+  S.echauffement=lignes.length?lignes:[...ECHAUF_DEFAUT];
+  save(); $("#dlgEchauf").close();
+  toast("Échauffement mis à jour");
+  renderEnCours();
+}
+function resetEchauf(){
+  S.echauffement=[...ECHAUF_DEFAUT];
+  $("#echTexte").value=S.echauffement.join("\n");
+  save(); toast("Échauffement par défaut restauré");
+}
+"use strict";
 /* ============ Zones musculaires & cotation alpine ============ */
 const ZONES = [
   ["pecs","Pectoraux","PEC"],
@@ -1108,7 +1216,9 @@ function renderSeances(){
   }
   wrap.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>demarrerSeance(b.dataset.go));
   wrap.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editSeance(b.dataset.edit));
-  renderEnCours(); renderHistoSeances(); renderMuscles(); if(typeof renderAnalyses==="function") renderAnalyses();
+  renderEnCours(); renderHistoSeances(); renderMuscles();
+  if(typeof renderAnalyses==="function") renderAnalyses();
+  if(typeof renderModeProgramme==="function") renderModeProgramme();
 }
 
 /* ============ Cotation des muscles ============ */
@@ -1150,20 +1260,23 @@ function renderEnCours(){
   const libre=!!S.enCours.libre;
   let html=`<div class="card" style="border-color:var(--signal)">
     <div class="seance-head"><h2 style="margin:0">${esc(s.nom)}</h2><span class="stamp">${libre?"Libre · en cours":"En cours"}</span></div>`;
+  html+=(typeof echBloc==="function")?echBloc():"";
   for(const e of s.exos){
     const done=S.enCours.sets[e.id]||[];
     const pr=S.prs[e.nom];
     html+=`<div class="exo">
       <div class="exo-name">${esc(e.nom)}</div>
-      <div class="exo-meta">${e.series} × ${e.reps}${e.note?` · ${esc(e.note)}`:""}${pr?` · <span class="pr-note">record : ${pr} kg</span>`:""}</div>
+      <div class="exo-meta">${e.series} × ${e.reps}${e.note?` · ${esc(e.note)}`:""}${pr?` · <span class="pr-note">record : ${pr} kg</span>`:""}${(e===s.exos[0]&&e.poids>0)?` · <span class="pr-note">approche : ${Math.max(1,Math.round(e.poids/2))} kg × 8</span>`:""}</div>
       <div class="sets">${done.map((d,i)=>`<span class="set-chip ${d?"done":""}" data-exo="${e.id}" data-i="${i}">${d?"✓":i+1}</span>`).join("")}
         <input type="number" step="0.5" min="0" placeholder="kg" value="${e.poids||""}" data-kg="${e.id}" style="width:74px;padding:6px" title="Charge utilisée (kg)">
       </div></div>`;
   }
+  html+=`<p class="cote-meta" style="margin-top:10px">${(typeof RETOUR_CALME!=="undefined")?esc(RETOUR_CALME):""}</p>`;
   html+=`<div class="spacer"></div><div class="row">
     <button class="btn signal" id="btnFinish">Mission accomplie · +120 pts</button>
     <button class="btn ghost" id="btnAbandon">Abandonner</button></div></div>`;
   w.innerHTML=html;
+  if(typeof brancherEchauf==="function") brancherEchauf(w);
   w.querySelectorAll(".set-chip").forEach(c=>c.onclick=()=>{
     const arr=S.enCours.sets[c.dataset.exo]; arr[+c.dataset.i]=!arr[+c.dataset.i]; save(); renderEnCours();
   });
@@ -1176,6 +1289,10 @@ function renderEnCours(){
 }
 function terminerSeance(s){
   const musclesAvant=JSON.parse(JSON.stringify(S.muscles||{}));
+  const echSnapshot={
+    total:(typeof echList==="function")?echList().length:0,
+    faits:(S.enCours&&Array.isArray(S.enCours.ech))?S.enCours.ech.filter(Boolean).length:0
+  };
   let dureeMin=null;
   if(S.enCours&&S.enCours.debut){
     const m=Math.round((Date.now()-S.enCours.debut)/60000);
@@ -1194,6 +1311,7 @@ function terminerSeance(s){
   S.enCours=null;
   const q=queteCourante(); q.seances++; save();
   const bilan=construireBilan(s,setsMap,dureeMin,libre,musclesAvant,prs);
+  bilan.ech=echSnapshot;
   const an=enregistrerAnalyse(bilan);
   gagner(120, `Mission « ${s.nom} » accomplie`);
   gagnerJeton(1,"Mission accomplie");
@@ -1207,7 +1325,7 @@ function renderHistoSeances(){
   const h=$("#histoSeances");
   if(!S.histoSeances.length){ h.innerHTML=`<p class="muted">Aucune mission au journal. Le premier pas est le plus dur, soldat.</p>`; return; }
   h.innerHTML=`<table class="mini">`+S.histoSeances.slice(0,12).map(x=>
-    `<tr class="${x.ext?"ext":""}"><td>${fmtDate(x.d)}</td><td><b>${esc(x.nom)}</b>${x.prs&&x.prs.length?` <span class="pr-note">PR !</span>`:""}</td><td class="muted">${esc(x.sets||"")}</td><td class="muted">+${x.m} pts</td></tr>`).join("")+`</table>`;
+    `<tr class="${x.repos?"repos":x.ext?"ext":""}"><td>${fmtDate(x.d)}</td><td><b>${esc(x.nom)}</b>${x.prs&&x.prs.length?` <span class="pr-note">PR !</span>`:""}</td><td class="muted">${esc(x.sets||"")}</td><td class="muted">${x.m>0?"+"+x.m+" pts":"—"}</td></tr>`).join("")+`</table>`;
 }
 
 /* ============ Éditeur de séance ============ */
@@ -1284,6 +1402,108 @@ $("#dsDelete").onclick=()=>{
 $("#btnAddSeance").onclick=()=>editSeance(null);
 $("#btnSeanceLibre").onclick=()=>editSeance(null,true);
 $("#btnActivite").onclick=()=>ouvrirActivite();
+$("#btnRepos").onclick=()=>ouvrirRepos();
+$("#reposAnnuler").onclick=()=>$("#dlgRepos").close();
+$("#reposValider").onclick=()=>validerRepos();
+function renderModeProgramme(){
+  const w=$("#modeProgramme"); if(!w) return;
+  w.innerHTML=modeSocle()
+    ? `<button class="btn ghost small" onclick="restaurerProgrammeComplet()">Revenir au programme A / B / C</button>`
+    : `<button class="btn ghost small" onclick="passerEnSeanceUnique()">Mode débutant — une seule séance répétée</button>`;
+}
+"use strict";
+/* ============ Séance socle (mode débutant : une seule séance répétée) ============ */
+function seanceSocle(){
+  const ex=(nom,series,reps,poids,note,zones)=>({id:uid(),nom,series,reps,poids,note:note||"",zones});
+  return {id:uid(),nom:"Séance socle",exos:[
+    ex("Développé haltères sur banc",3,10,8,"par haltère",["pecs","triceps"]),
+    ex("Rowing haltère unilatéral",3,10,10,"par côté",["dos","biceps"]),
+    ex("Hip thrust sur banc",3,12,14,"haltère sur le bassin",["jambes"]),
+    ex("Curl haltères",3,12,6,"par haltère",["biceps"]),
+    ex("Gainage (secondes)",3,30,0,"poids du corps",["abdos"]),
+    ex("Crunch ou roue abdominale",3,12,0,"selon ce qui passe bien",["abdos"]),
+  ]};
+}
+function passerEnSeanceUnique(){
+  if(!confirm("Remplacer le programme par une séance socle unique, répétée à chaque fois ?\n\nTes missions déjà accomplies et tes aptitudes sont conservées.")) return;
+  S.seances=[seanceSocle()];
+  S.enCours=null;
+  save(); renderSeances(); renderBase();
+  toast("Programme simplifié — une seule séance à répéter","Mode débutant");
+}
+function restaurerProgrammeComplet(){
+  if(!confirm("Revenir au programme en trois séances (A, B, C) ?")) return;
+  const socle=S.seances.find(s=>s.nom==="Séance socle");
+  seedSeances();
+  if(socle) S.seances.push(socle);
+  save(); renderSeances(); renderBase();
+  toast("Programme A / B / C restauré");
+}
+function modeSocle(){ return S.seances.length===1 && S.seances[0].nom==="Séance socle"; }
+
+/* ============ Journée de repos / courbatures ============ */
+const NIV_REPOS=[
+  {id:"legere", nom:"Légères",  ds:"gênantes mais je bouge bien"},
+  {id:"moderee",nom:"Modérées", ds:"raide, amplitude réduite"},
+  {id:"forte",  nom:"Fortes",   ds:"douloureux au moindre mouvement"},
+];
+let reposDraft={zones:[],niveau:"moderee",note:""};
+
+function ouvrirRepos(){
+  reposDraft={zones:[],niveau:"moderee",note:""};
+  renderReposDialog();
+  $("#dlgRepos").showModal();
+}
+function renderReposDialog(){
+  const w=$("#dlgReposBody");
+  w.innerHTML=`
+  <p class="muted">Aucun point gagné — le repos n'est pas une performance. Mais la journée est consignée : ta série de jours en service continue, et l'app en tiendra compte pour te proposer la prochaine séance.</p>
+  <label class="fld" style="margin:14px 0 6px">Zones courbaturées <span class="muted">(facultatif)</span></label>
+  <div>${ZONES.map(([zid,zl])=>`<span class="tag zrep ${reposDraft.zones.includes(zid)?"on":""}" data-zr="${zid}" style="cursor:pointer">${zl}</span>`).join("")}</div>
+  <label class="fld" style="margin:14px 0 6px">Intensité</label>
+  <div class="pickrow col">${NIV_REPOS.map(n=>`<button class="pick wide ${reposDraft.niveau===n.id?"on":""}" data-nr="${n.id}"><b>${n.nom}</b><span>${n.ds}</span></button>`).join("")}</div>
+  <label class="fld" style="margin:14px 0 6px">Note <span class="muted">(facultatif)</span></label>
+  <input id="reposNote" placeholder="ex : suite du parcours du combattant" value="${esc(reposDraft.note)}">`;
+  w.querySelectorAll("[data-zr]").forEach(t=>t.onclick=()=>{
+    const z=t.dataset.zr;
+    reposDraft.zones=reposDraft.zones.includes(z)?reposDraft.zones.filter(x=>x!==z):[...reposDraft.zones,z];
+    renderReposDialog();
+  });
+  w.querySelectorAll("[data-nr]").forEach(b=>b.onclick=()=>{ reposDraft.niveau=b.dataset.nr; renderReposDialog(); });
+  $("#reposNote").oninput=()=>{ reposDraft.note=$("#reposNote").value; };
+}
+function validerRepos(){
+  const n=NIV_REPOS.find(x=>x.id===reposDraft.niveau);
+  const dejà=S.histoSeances.find(h=>h.d===todayKey()&&h.repos);
+  const zl=reposDraft.zones.map(z=>ZONES.find(x=>x[0]===z)[1]);
+  const entree={
+    d:todayKey(), nom:"◦ Journée de repos", m:0, repos:true,
+    sets:(zl.length?zl.join(", "):"récupération")+" · "+n.nom,
+    zonesRepos:[...reposDraft.zones], niveau:reposDraft.niveau, note:reposDraft.note||""
+  };
+  if(dejà) S.histoSeances=S.histoSeances.filter(h=>h!==dejà);
+  S.histoSeances.unshift(entree);
+  S.journal.unshift({d:todayKey(),txt:"Journée de repos consignée",m:0});
+  S.journal=S.journal.slice(0,80);
+  marquerActivite();
+  save(); checkJalons();
+  $("#dlgRepos").close();
+  toast(dejà?"Repos du jour mis à jour":"Journée de repos consignée","Récupération");
+  renderSeances(); renderBase(); renderHeader(); renderCarnet();
+}
+
+/* --- zones encore sensibles (repos consigné récemment) --- */
+function zonesSensibles(jours){
+  const lim=new Date(); lim.setDate(lim.getDate()-(jours||2));
+  const limK=todayKey(lim);
+  const out=new Set();
+  for(const h of S.histoSeances){
+    if(!h.repos || h.d<limK) continue;
+    for(const z of (h.zonesRepos||[])) out.add(z);
+  }
+  return [...out];
+}
+function reposAujourdhui(){ return S.histoSeances.some(h=>h.d===todayKey()&&h.repos); }
 "use strict";
 /* ============ Saisie manuelle ============ */
 $("#btnAddPoids").onclick=()=>{
@@ -1842,6 +2062,12 @@ function renderDebrief(an){
 
     if(b.prs.length) h+=`<p class="hand">Records : ${b.prs.map(esc).join(" · ")}</p>`;
 
+    if(b.ech&&b.ech.total){
+      const ok=b.ech.faits;
+      h+= ok===0
+        ? `<p class="dbg-warn">⚠ Échauffement non coché. À froid — surtout le matin — c'est le facteur de risque numéro un pour un débutant. Cinq minutes suffisent.</p>`
+        : `<p class="muted">Échauffement : ${ok}/${b.ech.total} étapes${ok===b.ech.total?" — complet ✓":""}.</p>`;
+    }
     h+=`<h3 class="dbg-h">Ajustements pour la prochaine fois</h3>`;
     for(const e of b.exos){
       const cls=e.conseil.action==="Augmenter"?"up":(e.conseil.action==="Alléger"||e.conseil.action==="Non fait")?"down":"keep";
@@ -1852,6 +2078,9 @@ function renderDebrief(an){
       </div>`;
     }
 
+    const sens=(typeof zonesSensibles==="function")?zonesSensibles(2):[];
+    const touchees=sens.filter(z=>Object.keys(b.parZone).includes(z)).map(z=>ZONES.find(x=>x[0]===z)[1]);
+    if(touchees.length) h+=`<p class="dbg-warn">⚠ ${touchees.join(", ")} : zone${touchees.length>1?"s":""} signalée${touchees.length>1?"s":""} courbaturée${touchees.length>1?"s":""} ces deux derniers jours. Si la gêne persiste après la séance, allège nettement la prochaine fois.</p>`;
     const rAuj=Object.entries(b.recup).filter(([z,j])=>j===0).map(([z])=>ZONES.find(x=>x[0]===z)[1]);
     const rHier=Object.entries(b.recup).filter(([z,j])=>j===1).map(([z])=>ZONES.find(x=>x[0]===z)[1]);
     if(rAuj.length||rHier.length){
@@ -2348,7 +2577,7 @@ function fusion(L,R){
     const dans=d=>d>=wk&&d<finK;
     out.quete={
       semaine:wk,
-      seances:(out.histoSeances||[]).filter(x=>dans(x.d)).length,
+      seances:(out.histoSeances||[]).filter(x=>dans(x.d)&&!x.repos).length,
       pesees:(out.pesees||[]).filter(x=>dans(x.d)).length,
       plan:!!((qr&&qr.plan)||(ql&&ql.plan)),
       claimed:!!((qr&&qr.claimed)||(ql&&ql.claimed))
@@ -2480,13 +2709,19 @@ function renderBase(){
     suggestion=S.seances[(idx+1)%S.seances.length]||S.seances[0];
   }
   const zfLabel=zf&&suggestion===parZone?ZONES.find(x=>x[0]===zf)[1]:null;
-  const dejaAujourdhui=S.histoSeances.some(h=>h.d===todayKey());
-  const btnSortie=`<div class="spacer"></div><button class="btn ghost small" onclick="document.querySelector('[data-page=seances]').click();ouvrirActivite()">▲ Consigner une sortie</button>`;
+  const dejaAujourdhui=S.histoSeances.some(h=>h.d===todayKey()&&!h.repos);
+  const sensibles=(typeof zonesSensibles==="function")?zonesSensibles(2):[];
+  const enRepos=(typeof reposAujourdhui==="function")&&reposAujourdhui();
+  const btnSortie=`<div class="spacer"></div><div class="row">
+    <button class="btn ghost small" onclick="document.querySelector('[data-page=seances]').click();ouvrirActivite()">▲ Sortie</button>
+    <button class="btn ghost small" onclick="document.querySelector('[data-page=seances]').click();ouvrirRepos()">◦ Repos</button></div>`;
+  const noteSensible=sensibles.length?`<p class="hand" style="font-size:11px">Encore sensible : ${sensibles.map(z=>ZONES.find(x=>x[0]===z)[1]).join(", ")} — allège ou évite ces zones.</p>`:"";
   $("#baseSeance").innerHTML=`<h2>Ordre du jour</h2>`+(
-    dejaAujourdhui?`<p class="hand">Mission du jour accomplie. Repos, reprise demain.</p>`
+    enRepos?`<p class="hand">Journée de repos consignée. C'est une décision d'entraînement, pas une absence.</p>${noteSensible}`
+    :dejaAujourdhui?`<p class="hand">Mission du jour accomplie. Repos, reprise demain.</p>`
     :S.enCours?`<p>Une mission est en cours.</p><button class="btn signal" onclick="document.querySelector('[data-page=seances]').click()">Reprendre</button>`
     :suggestion?`<p>Mission recommandée :</p><p><b>${esc(suggestion.nom)}</b>${zfLabel?`<br><span class="hand" style="font-size:16px">objectif : renforcer ${zfLabel}</span>`:""}</p><div class="spacer"></div>
-      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer la mission · +120 pts</button>`
+      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer la mission · +120 pts</button>${noteSensible}`
     :`<p class="muted">Aucune séance au programme.</p>`)+btnSortie;
 
   // Poids
@@ -2560,7 +2795,7 @@ function boot(){
   queteCourante();
   applySkin(S.settings.skin||"orbite");
   if(typeof initSyncUI==="function"){ initSyncUI(); renderSync(); if(syncActif()) syncMaintenant(true); }
-  renderHeader(); renderBase(); renderSeances(); renderPoids(); renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses(); renderSpatial();
+  renderHeader(); renderBase(); renderSeances(); renderPoids(); renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses(); renderSpatial(); renderModeProgramme();
   checkJalons();
 }
 function tickClock(){
