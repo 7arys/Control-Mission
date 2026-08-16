@@ -255,6 +255,14 @@ ul.courses li b{font-family:var(--mono);color:var(--accent)}
 .skin .sw i{width:14px;height:14px;border-radius:2px;display:block;border:1px solid rgba(255,255,255,.14)}
 .skin .nm{font-family:var(--display);font-weight:600;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink)}
 .skin .ds{font-family:var(--mono);font-size:8.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+/* ---------- Composition ---------- */
+.compo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.compo>div{border:1px solid var(--line);border-radius:var(--r);padding:9px 6px;text-align:center;background:var(--panel2)}
+.compo b{display:block;font-family:var(--display);font-size:17px;color:var(--accent)}
+.compo span{font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.compo i{display:block;font-style:normal;font-family:var(--mono);font-size:9px;margin-top:3px;color:var(--dim)}
+.compo i.up{color:var(--ok)}
+.compo i.down{color:var(--accent2)}
 /* ---------- Sélecteurs guidés (sortie extérieure) ---------- */
 .pickrow{display:flex;gap:6px;flex-wrap:wrap}
 .pickrow.col{flex-direction:column}
@@ -408,6 +416,8 @@ dialog h2{font-size:14px}
   </div>
   <div class="spacer"></div>
   <div class="row" id="modeProgramme"></div>
+  <h2>Bandes élastiques</h2>
+  <div class="card flat" id="listeBandes"></div>
   <h2>Récupération</h2>
   <div class="card flat">
     <p class="muted">Courbatures, fatigue, blessure : consigne la journée. Aucun point gagné, mais ta série continue et l'app adapte ses suggestions.</p>
@@ -433,6 +443,7 @@ dialog h2{font-size:14px}
     <div class="row">
       <label class="fld">Poids (kg)<input type="number" step="0.1" min="30" max="250" id="inPoids" inputmode="decimal" placeholder="72.4"></label>
       <label class="fld">Masse grasse % <span class="muted">(optionnel)</span><input type="number" step="0.1" min="3" max="60" id="inMg" inputmode="decimal" placeholder="18.2"></label>
+      <label class="fld">Masse musculaire kg <span class="muted">(optionnel)</span><input type="number" step="0.1" min="10" max="120" id="inMm" inputmode="decimal" placeholder="52.4"></label>
     </div>
     <button class="btn signal" id="btnAddPoids">Consigner la pesée · +15 pts</button>
     <p class="muted" style="margin-top:8px">Astuce : la balance affiche le chiffre, tu le notes ici en 2 tapes. Pour recaler l'historique complet, importe le CSV Withings ci-dessous.</p>
@@ -445,6 +456,10 @@ dialog h2{font-size:14px}
       <span><i style="background:var(--signal)"></i>Tendance 7 jours</span>
     </div>
     <p class="hand" id="poidsVerdict" style="margin-top:6px"></p>
+  </div>
+  <div class="card">
+    <h2>Composition</h2>
+    <div id="compoBloc"></div>
   </div>
   <div class="card">
     <h2>Import Withings (CSV)</h2>
@@ -519,6 +534,10 @@ dialog h2{font-size:14px}
     <label class="fld" style="margin-bottom:6px">Habillage de l'interface</label>
     <div class="skins" id="skinPicker"></div>
     <label class="fld">Objectif protéines (g/jour)<input type="number" id="setProt" min="60" max="260"></label>
+    <div class="row">
+      <label class="fld">Missions / semaine<input type="number" id="setObjS" min="1" max="7"></label>
+      <label class="fld">Pesées / semaine<input type="number" id="setObjP" min="1" max="7"></label>
+    </div>
     <div class="row">
       <button class="btn" id="btnSaveSettings">Enregistrer</button>
     </div>
@@ -644,6 +663,20 @@ dialog h2{font-size:14px}
   </div>
 </dialog>
 
+<!-- Dialog bandes -->
+<dialog id="dlgBandes">
+  <h2>Résistances des bandes</h2>
+  <p class="muted">Une ligne par bande, de la plus souple à la plus dure, au format <b>Nom : résistance en kg</b>. La valeur est souvent imprimée sur la bande ou dans la notice SmartWorkout.</p>
+  <div class="spacer"></div>
+  <textarea id="bandesTexte" rows="7"></textarea>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" onclick="sauverBandes()">Enregistrer</button>
+    <button class="btn ghost" onclick="resetBandes()">Par défaut</button>
+    <button class="btn ghost" onclick="document.getElementById('dlgBandes').close()">Fermer</button>
+  </div>
+</dialog>
+
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -653,6 +686,7 @@ const $$ = s => [...document.querySelectorAll(s)];
 const todayKey = (d=new Date()) => d.toISOString().slice(0,10);
 const fmtDate = k => { const d=new Date(k+"T12:00:00"); return d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"}); };
 const uid = () => Math.random().toString(36).slice(2,9);
+const clone = o => JSON.parse(JSON.stringify(o));
 const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function toast(msg, hand){
@@ -681,24 +715,26 @@ const DEFAULTS = {
   analyses: [],                // débriefings de séance
   jeu: null,                   // programme spatial
   echauffement: null,          // liste personnalisable
+  bandes: null,                // résistances élastiques
   muscles: {},                 // zone -> {pts, last, n}
   recettes: [],                // {id, nom, type, kcal, prot, ing:[{q,u,n}]}
   semaine: null,               // {debut, jours:[{d, slots:{petitdej,dej,diner,collation}}]}
   jalons: {},                  // id -> dateISO
   quete: null,                 // {semaine, done:{seances,pesees,plan}, reward}
-  settings: { prot: 130, apiKey: "", skin: "orbite", iaProvider: "gemini", iaModel: "" },
+  settings: { prot: 130, apiKey: "", skin: "orbite", iaProvider: "gemini", iaModel: "", objSeances: 3, objPesees: 2 },
   activite: {},                // dateKey -> true (pour la streak)
 };
 let S;
 function load(){
   try { S = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem("expedition")||"{}")); }
-  catch(e){ S = structuredClone(DEFAULTS); }
+  catch(e){ S = clone(DEFAULTS); }
   S.settings = Object.assign({}, DEFAULTS.settings, S.settings||{});
   if(!S.alt || !Object.keys(S.alt).length) S.alt = (S.altitude>0)?{[devId()]:S.altitude}:{};
   S.altitude = totalAlt();
   if(!S.seances.length && !S.histoSeances.length) seedSeances();
   if(!S.recettes.length) seedRecettes();
   migrateZones();
+  if(typeof migrerBandes==="function") migrerBandes();
 }
 function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0); }
 function save(){
@@ -769,7 +805,10 @@ function queteCourante(){
   }
   return S.quete;
 }
-function queteObjectifs(){ return {seances:3, pesees:4, plan:1}; }
+function queteObjectifs(){
+  const s=S.settings||{};
+  return {seances:Math.max(1,+s.objSeances||3), pesees:Math.max(1,+s.objPesees||2), plan:1};
+}
 function queteComplete(q){
   const o=queteObjectifs();
   return q.seances>=o.seances && q.pesees>=o.pesees && (q.plan?1:0)>=o.plan;
@@ -1065,6 +1104,101 @@ function resetEchauf(){
   save(); toast("Échauffement par défaut restauré");
 }
 "use strict";
+/* ============ Bandes élastiques ============ */
+/* Valeurs indicatives à ajuster : la résistance réelle est souvent imprimée sur la bande
+   ou indiquée dans la notice SmartWorkout. L'ordre compte, du plus souple au plus dur. */
+const BANDES_DEFAUT=[
+  {id:"b1", nom:"Très légère", kg:4},
+  {id:"b2", nom:"Légère",      kg:7},
+  {id:"b3", nom:"Moyenne",     kg:11},
+  {id:"b4", nom:"Forte",       kg:16},
+  {id:"b5", nom:"Très forte",  kg:23},
+];
+function bandes(){
+  if(!Array.isArray(S.bandes)||!S.bandes.length) S.bandes=JSON.parse(JSON.stringify(BANDES_DEFAUT));
+  return S.bandes;
+}
+function bandeById(id){ return bandes().find(b=>b.id===id)||null; }
+function bandeSuivante(id){
+  const l=bandes(), i=l.findIndex(b=>b.id===id);
+  return (i>=0&&i<l.length-1)?l[i+1]:null;
+}
+function bandePrecedente(id){
+  const l=bandes(), i=l.findIndex(b=>b.id===id);
+  return i>0?l[i-1]:null;
+}
+function libelleBande(id){
+  const b=bandeById(id);
+  return b?`${b.nom} · ${b.kg} kg`:"bande non choisie";
+}
+/* applique la bande à un exercice : la résistance équivalente alimente
+   le calcul de volume, les records et la progression, comme une charge */
+function appliquerBande(exo,id){
+  const b=bandeById(id);
+  exo.bande=id;
+  exo.poids=b?b.kg:0;
+}
+function selectBande(exo){
+  const l=bandes();
+  return `<select data-bande="${exo.id}" style="max-width:170px;padding:6px" title="Résistance de la bande">
+    <option value="">— bande —</option>
+    ${l.map(b=>`<option value="${b.id}" ${exo.bande===b.id?"selected":""}>${esc(b.nom)} · ${b.kg} kg</option>`).join("")}
+  </select>`;
+}
+
+/* --- éditeur des résistances --- */
+function ouvrirBandes(){
+  $("#bandesTexte").value=bandes().map(b=>`${b.nom} : ${b.kg}`).join("\n");
+  $("#dlgBandes").showModal();
+}
+function sauverBandes(){
+  const lignes=$("#bandesTexte").value.split("\n").map(l=>l.trim()).filter(Boolean);
+  const out=[];
+  lignes.forEach((l,i)=>{
+    const m=l.match(/^(.*?)\s*[:=]\s*([\d.,]+)/);
+    if(m){
+      const kg=parseFloat(m[2].replace(",","."))||0;
+      const anc=bandes()[i];
+      out.push({id:(anc&&anc.id)||("b"+uid()), nom:m[1].trim()||("Bande "+(i+1)), kg});
+    }
+  });
+  if(!out.length){ toast("Format : Nom : résistance en kg"); return; }
+  S.bandes=out;
+  // réaligner la résistance équivalente des exercices concernés
+  for(const s of S.seances) for(const e of s.exos){
+    if(e.mode==="bande"){ const b=bandeById(e.bande); e.poids=b?b.kg:0; }
+  }
+  save(); $("#dlgBandes").close();
+  toast("Résistances mises à jour");
+  renderSeances(); renderBandes();
+}
+function resetBandes(){
+  S.bandes=JSON.parse(JSON.stringify(BANDES_DEFAUT));
+  $("#bandesTexte").value=S.bandes.map(b=>`${b.nom} : ${b.kg}`).join("\n");
+  save(); toast("Résistances par défaut restaurées");
+}
+function renderBandes(){
+  const w=$("#listeBandes"); if(!w) return;
+  w.innerHTML=`<div>${bandes().map(b=>`<span class="tag">${esc(b.nom)} · ${b.kg} kg</span>`).join("")}</div>
+    <div class="spacer"></div>
+    <button class="btn ghost small" onclick="ouvrirBandes()">Modifier les résistances</button>`;
+}
+
+/* --- migration : exercices élastiques existants --- */
+function migrerBandes(){
+  bandes();
+  for(const s of (S.seances||[])) for(const e of (s.exos||[])){
+    if(e.mode) continue;
+    if(/élastique|elastique|bande/i.test(e.nom+" "+(e.note||""))){
+      e.mode="bande";
+      if(!e.bande){
+        const def=/moyenne/i.test(e.note||"")?"b3":"b2";
+        appliquerBande(e,def);
+      }
+    } else e.mode="kg";
+  }
+}
+"use strict";
 /* ============ Zones musculaires & cotation alpine ============ */
 const ZONES = [
   ["pecs","Pectoraux","PEC"],
@@ -1203,7 +1337,7 @@ function renderSeances(){
   const wrap=$("#listeSeances"); wrap.innerHTML="";
   for(const s of S.seances){
     const card=document.createElement("div"); card.className="card";
-    const detail=s.exos.map(e=>`<tr><td>${esc(e.nom)}</td><td style="white-space:nowrap">${e.series} × ${e.reps}</td><td style="white-space:nowrap"><b>${e.poids>0?e.poids+" kg":"—"}</b>${e.note?` <span class="muted">${esc(e.note)}</span>`:""}</td></tr>`).join("");
+    const detail=s.exos.map(e=>`<tr><td>${esc(e.nom)}</td><td style="white-space:nowrap">${e.series} × ${e.reps}</td><td style="white-space:nowrap"><b>${e.mode==="bande"?(e.bande?esc(libelleBande(e.bande)):"bande"):(e.poids>0?e.poids+" kg":"—")}</b>${e.note?` <span class="muted">${esc(e.note)}</span>`:""}</td></tr>`).join("");
     card.innerHTML=`<div class="seance-head">
       <div><b>${esc(s.nom)}</b><div class="muted">${s.exos.length} exercices</div></div>
       <div style="display:flex;gap:6px">
@@ -1219,6 +1353,7 @@ function renderSeances(){
   renderEnCours(); renderHistoSeances(); renderMuscles();
   if(typeof renderAnalyses==="function") renderAnalyses();
   if(typeof renderModeProgramme==="function") renderModeProgramme();
+  if(typeof renderBandes==="function") renderBandes();
 }
 
 /* ============ Cotation des muscles ============ */
@@ -1266,9 +1401,9 @@ function renderEnCours(){
     const pr=S.prs[e.nom];
     html+=`<div class="exo">
       <div class="exo-name">${esc(e.nom)}</div>
-      <div class="exo-meta">${e.series} × ${e.reps}${e.note?` · ${esc(e.note)}`:""}${pr?` · <span class="pr-note">record : ${pr} kg</span>`:""}${(e===s.exos[0]&&e.poids>0)?` · <span class="pr-note">approche : ${Math.max(1,Math.round(e.poids/2))} kg × 8</span>`:""}</div>
+      <div class="exo-meta">${e.series} × ${e.reps}${e.mode==="bande"?` · élastique`:""}${e.note?` · ${esc(e.note)}`:""}${pr?` · <span class="pr-note">record : ${pr} kg</span>`:""}${(e===s.exos[0]&&e.poids>0)?` · <span class="pr-note">approche : ${Math.max(1,Math.round(e.poids/2))} kg × 8</span>`:""}</div>
       <div class="sets">${done.map((d,i)=>`<span class="set-chip ${d?"done":""}" data-exo="${e.id}" data-i="${i}">${d?"✓":i+1}</span>`).join("")}
-        <input type="number" step="0.5" min="0" placeholder="kg" value="${e.poids||""}" data-kg="${e.id}" style="width:74px;padding:6px" title="Charge utilisée (kg)">
+        ${e.mode==="bande"?selectBande(e):`<input type="number" step="0.5" min="0" placeholder="kg" value="${e.poids||""}" data-kg="${e.id}" style="width:74px;padding:6px" title="Charge utilisée (kg)">`}
       </div></div>`;
   }
   html+=`<p class="cote-meta" style="margin-top:10px">${(typeof RETOUR_CALME!=="undefined")?esc(RETOUR_CALME):""}</p>`;
@@ -1283,6 +1418,10 @@ function renderEnCours(){
   w.querySelectorAll("[data-kg]").forEach(inp=>inp.onchange=()=>{
     const e=s.exos.find(x=>x.id===inp.dataset.kg); if(!e) return;
     e.poids=parseFloat(inp.value)||0; save();
+  });
+  w.querySelectorAll("[data-bande]").forEach(sel=>sel.onchange=()=>{
+    const e=s.exos.find(x=>x.id===sel.dataset.bande); if(!e) return;
+    appliquerBande(e,sel.value); save(); renderEnCours();
   });
   $("#btnFinish").onclick=()=>terminerSeance(s);
   $("#btnAbandon").onclick=()=>{ if(confirm("Abandonner cette mission ?")){ S.enCours=null; save(); renderEnCours(); } };
@@ -1337,7 +1476,7 @@ function editSeance(id, libre){
   $("#dsNom").value=s?s.nom:(modeLibre?"Mission libre":"");
   $("#dsSave").textContent=modeLibre?"En avant !":"Enregistrer";
   $("#dsDelete").style.display=s?"":"none";
-  renderExoEditor(s?structuredClone(s.exos):[]);
+  renderExoEditor(s?clone(s.exos):[]);
   $("#dlgSeance").showModal();
 }
 let exoDraft=[];
@@ -1350,9 +1489,13 @@ function renderExoEditor(exos){
       <input placeholder="Exercice" value="${esc(e.nom)}" data-f="nom" style="flex:3;min-width:150px">
       <input type="number" min="1" placeholder="Séries" value="${e.series}" data-f="series" style="max-width:70px">
       <input type="number" min="1" placeholder="Reps" value="${e.reps}" data-f="reps" style="max-width:70px">
-      <input type="number" min="0" step="0.5" placeholder="kg" value="${e.poids||""}" data-f="poids" style="max-width:70px">
+      ${e.mode==="bande"?`<span class="tag on" data-mode="${i}" style="cursor:pointer;align-self:center">élastique</span>`:`<input type="number" min="0" step="0.5" placeholder="kg" value="${e.poids||""}" data-f="poids" style="max-width:70px">`}
       <button class="btn small danger" data-del="${i}">✕</button></div>
       <input placeholder="Note (ex : par haltère, bande forte…)" value="${esc(e.note||"")}" data-f="note" style="margin-top:5px;font-size:13px">
+      <div style="margin-top:5px">
+        <span class="tag ${e.mode==="bande"?"on":""}" data-basc="${i}" style="cursor:pointer">${e.mode==="bande"?"⇄ passer en kg":"⇄ passer en élastique"}</span>
+        ${e.mode==="bande"?selectBande(e):""}
+      </div>
       <div style="margin-top:5px">${ZONES.map(([zid,zl])=>`<span class="tag zpick ${(e.zones||[]).includes(zid)?"on":""}" data-z="${zid}" data-i="${i}">${zl}</span>`).join("")}</div>`;
     div.querySelectorAll("[data-f]").forEach(inp=>inp.oninput=()=>{
       const f=inp.dataset.f;
@@ -1365,11 +1508,19 @@ function renderExoEditor(exos){
       else e.zones.push(z);
       t.classList.toggle("on");
     });
+    const basc=div.querySelector("[data-basc]");
+    if(basc) basc.onclick=()=>{
+      if(e.mode==="bande"){ e.mode="kg"; e.bande=null; e.poids=0; }
+      else { e.mode="bande"; appliquerBande(e,"b2"); }
+      renderExoEditor(exoDraft);
+    };
+    const selB=div.querySelector("[data-bande]");
+    if(selB) selB.onchange=()=>{ appliquerBande(e,selB.value); renderExoEditor(exoDraft); };
     div.querySelector("[data-del]").onclick=()=>{ exoDraft.splice(i,1); renderExoEditor(exoDraft); };
     w.appendChild(div);
   });
 }
-$("#dsAddExo").onclick=()=>{ exoDraft.push({id:uid(),nom:"",series:3,reps:10,poids:0,note:"",zones:[]}); renderExoEditor(exoDraft); };
+$("#dsAddExo").onclick=()=>{ exoDraft.push({id:uid(),nom:"",series:3,reps:10,poids:0,note:"",zones:[],mode:"kg"}); renderExoEditor(exoDraft); };
 $("#dsSave").onclick=()=>{
   const nom=$("#dsNom").value.trim(); if(!nom){ toast("Donne un nom à la mission"); return; }
   const exos=exoDraft.filter(e=>e.nom.trim()).map(e=>{
@@ -1414,14 +1565,21 @@ function renderModeProgramme(){
 "use strict";
 /* ============ Séance socle (mode débutant : une seule séance répétée) ============ */
 function seanceSocle(){
-  const ex=(nom,series,reps,poids,note,zones)=>({id:uid(),nom,series,reps,poids,note:note||"",zones});
+  const ex=(nom,series,reps,poids,note,zones)=>({id:uid(),nom,series,reps,poids,note:note||"",zones,mode:"kg"});
+  const band=(nom,series,reps,bandeId,note,zones)=>{
+    const e={id:uid(),nom,series,reps,poids:0,note:note||"",zones,mode:"bande"};
+    appliquerBande(e,bandeId);
+    return e;
+  };
   return {id:uid(),nom:"Séance socle",exos:[
-    ex("Développé haltères sur banc",3,10,8,"par haltère",["pecs","triceps"]),
-    ex("Rowing haltère unilatéral",3,10,10,"par côté",["dos","biceps"]),
-    ex("Hip thrust sur banc",3,12,14,"haltère sur le bassin",["jambes"]),
-    ex("Curl haltères",3,12,6,"par haltère",["biceps"]),
-    ex("Gainage (secondes)",3,30,0,"poids du corps",["abdos"]),
-    ex("Crunch ou roue abdominale",3,12,0,"selon ce qui passe bien",["abdos"]),
+    ex("Squat au poids du corps",3,15,0,"descente lente, talons au sol",["jambes"]),
+    ex("Pompes inclinées (mains sur le banc)",3,8,0,"descendre vers le sol quand ça devient facile",["pecs","triceps"]),
+    band("Développé debout à l'élastique",3,12,"b2","ancrage dans le dos",["pecs","epaules"]),
+    band("Élévations latérales à l'élastique",3,12,"b1","bras presque tendus, monter jusqu'aux épaules",["epaules"]),
+    ex("Curl haltères",3,12,5,"par haltère",["biceps"]),
+    band("Extensions triceps à l'élastique",3,15,"b2","coudes fixes, ancrage en hauteur",["triceps"]),
+    ex("Gainage (secondes)",3,30,0,"dos droit, fessiers serrés",["abdos"]),
+    ex("Crunch",3,12,0,"lent, sans tirer sur la nuque",["abdos"]),
   ]};
 }
 function passerEnSeanceUnique(){
@@ -1510,14 +1668,15 @@ $("#btnAddPoids").onclick=()=>{
   const kg=parseFloat(String($("#inPoids").value).replace(",","."));
   if(!kg || kg<30 || kg>250){ toast("Poids invalide"); return; }
   const mg=parseFloat(String($("#inMg").value).replace(",","."))||null;
-  ajouterPesee(todayKey(), kg, mg, true);
-  $("#inPoids").value=""; $("#inMg").value="";
+  const mm=parseFloat(String($("#inMm").value).replace(",","."))||null;
+  ajouterPesee(todayKey(), kg, mg, true, mm);
+  $("#inPoids").value=""; $("#inMg").value=""; $("#inMm").value="";
 };
-function ajouterPesee(d, kg, mg, manuel){
+function ajouterPesee(d, kg, mg, manuel, mm){
   const ex=S.pesees.find(p=>p.d===d);
   const nouvelle=!ex;
-  if(ex){ ex.kg=kg; if(mg!=null) ex.mg=mg; }
-  else S.pesees.push({d,kg,mg});
+  if(ex){ ex.kg=kg; if(mg!=null) ex.mg=mg; if(mm!=null) ex.mm=mm; }
+  else S.pesees.push({d,kg,mg,mm:mm==null?null:mm});
   S.pesees.sort((a,b)=>a.d<b.d?-1:1);
   if(manuel && !nouvelle){ save(); toast("Pesée du jour mise à jour"); renderPoids(); return; }
   if(manuel){
@@ -1537,7 +1696,7 @@ $("#inCsv").addEventListener("change", async e=>{
   let n=0;
   for(const r of res){
     const ex=S.pesees.find(p=>p.d===r.d);
-    if(ex){ ex.kg=r.kg; if(r.mg!=null) ex.mg=r.mg; }
+    if(ex){ ex.kg=r.kg; if(r.mg!=null) ex.mg=r.mg; if(r.mm!=null) ex.mm=r.mm; }
     else { S.pesees.push(r); n++; }
   }
   S.pesees.sort((a,b)=>a.d<b.d?-1:1);
@@ -1566,6 +1725,7 @@ function parseWithingsCsv(txt){
   const iKg   = head.findIndex(h=>(h.includes("poids")||h.includes("weight"))&&!h.includes("fat")&&!h.includes("graisse"));
   const iFat  = head.findIndex(h=>h.includes("fat mass")||h.includes("graisse"));
   const iFatP = head.findIndex(h=>h.includes("fat ratio")||h.includes("%"));
+  const iMus  = head.findIndex(h=>h.includes("masse musculaire")||h.includes("muscle mass"));
   if(iDate<0||iKg<0) return [];
   const out=[];
   for(let i=1;i<lignes.length;i++){
@@ -1576,8 +1736,10 @@ function parseWithingsCsv(txt){
     let mg=null;
     if(iFatP>=0){ const v=parseFloat(String(c[iFatP]).replace(",",".")); if(v>2&&v<70) mg=v; }
     else if(iFat>=0){ const v=parseFloat(String(c[iFat]).replace(",",".")); if(v>1&&v<kg) mg=Math.round(v/kg*1000)/10; }
+    let mm=null;
+    if(iMus>=0){ const v=parseFloat(String(c[iMus]).replace(",",".")); if(v>5&&v<kg+5) mm=Math.round(v*10)/10; }
     const ex=out.find(p=>p.d===d);
-    if(!ex) out.push({d,kg:Math.round(kg*10)/10,mg});
+    if(!ex) out.push({d,kg:Math.round(kg*10)/10,mg,mm});
   }
   return out;
 }
@@ -1593,7 +1755,32 @@ function parseDate(s){
 
 /* ============ Courbe SVG : brut + tendance 7 j ============ */
 function renderPoids(){
-  renderPoidsChart(); renderPoidsTable();
+  renderPoidsChart(); renderPoidsTable(); renderCompo();
+}
+function deltaSur(champ,jours){
+  const lim=new Date(); lim.setDate(lim.getDate()-(jours||14));
+  const limK=todayKey(lim);
+  const av=S.pesees.filter(p=>p[champ]!=null&&p.d<limK).pop();
+  const ap=S.pesees.filter(p=>p[champ]!=null).pop();
+  if(!av||!ap||av===ap) return null;
+  return Math.round((ap[champ]-av[champ])*10)/10;
+}
+function renderCompo(){
+  const w=$("#compoBloc"); if(!w) return;
+  const der=S.pesees[S.pesees.length-1];
+  if(!der){ w.innerHTML=`<p class="muted">Aucune donnée. Ta balance Body Comp donne poids, masse grasse et masse musculaire — saisis les trois quand tu les as.</p>`; return; }
+  const ligne=(lab,val,unite,champ)=>{
+    if(val==null) return `<div><b>—</b><span>${lab}</span></div>`;
+    const d=deltaSur(champ,14);
+    const fl=d==null?"":`<i class="${d>0?"up":d<0?"down":""}">${d>0?"+":""}${d} sur 14 j</i>`;
+    return `<div><b>${val}${unite}</b><span>${lab}</span>${fl}</div>`;
+  };
+  w.innerHTML=`<div class="compo">
+    ${ligne("Poids",der.kg," kg","kg")}
+    ${ligne("Masse grasse",der.mg," %","mg")}
+    ${ligne("Masse musculaire",der.mm," kg","mm")}
+  </div>
+  <p class="muted" style="margin-top:8px">Relevé du ${fmtDate(der.d)}. Sur une prise de muscle, la masse musculaire monte lentement : quelques centaines de grammes par mois est déjà un bon rythme.</p>`;
 }
 function moyenne7(pesees){
   // moyenne glissante sur fenêtre de 7 jours calendaires
@@ -1653,7 +1840,7 @@ function renderPoidsTable(){
   const t=$("#tblPoids");
   if(!S.pesees.length){ t.innerHTML=`<tr><td class="muted">Aucune pesée.</td></tr>`; return; }
   t.innerHTML=S.pesees.slice(-10).reverse().map(p=>
-    `<tr><td>${fmtDate(p.d)}</td><td><b>${p.kg} kg</b></td><td class="muted">${p.mg!=null?p.mg+" % MG":""}</td>
+    `<tr><td>${fmtDate(p.d)}</td><td><b>${p.kg} kg</b></td><td class="muted">${[p.mg!=null?p.mg+" % MG":"",p.mm!=null?p.mm+" kg MM":""].filter(Boolean).join(" · ")}</td>
      <td style="text-align:right"><button class="btn small danger" data-delp="${p.d}">✕</button></td></tr>`).join("");
   t.querySelectorAll("[data-delp]").forEach(b=>b.onclick=()=>{
     S.pesees=S.pesees.filter(p=>p.d!==b.dataset.delp); save(); renderPoids();
@@ -1967,7 +2154,8 @@ function construireBilan(s, setsMap, dureeMin, libre, musclesAvant, prs){
     const zs=e.zones||[];
     for(const z of zs) parZone[z]=(parZone[z]||0)+(done*e.reps*(charge||8))/zs.length;
     exos.push({nom:e.nom,done,prevu,reps:e.reps,poids:charge,vol:v,zones:zs,
-               conseil:conseilExo(done,prevu,charge,e.reps)});
+               mode:e.mode||"kg", bande:e.bande||null,
+               conseil:conseilExo(done,prevu,charge,e.reps,e)});
   }
   // récupération : jours depuis le dernier travail de chaque zone
   const recup={};
@@ -1978,10 +2166,22 @@ function construireBilan(s, setsMap, dureeMin, libre, musclesAvant, prs){
   return {nom:s.nom, libre:!!libre, duree:dureeMin, vol:Math.round(vol),
           setsFaits, setsPrevus, exos, parZone, recup, prs:prs||[]};
 }
-function conseilExo(done,prevu,charge,reps){
+function conseilExo(done,prevu,charge,reps,e){
   if(prevu===0) return {action:"—",txt:"Aucune série enregistrée."};
   if(done===0) return {action:"Non fait",txt:"Exercice sauté cette fois — à replacer dès la prochaine séance."};
   const taux=done/prevu;
+  const bande=(e&&e.mode==="bande");
+  if(bande){
+    const suiv=(typeof bandeSuivante==="function")?bandeSuivante(e.bande):null;
+    const prec=(typeof bandePrecedente==="function")?bandePrecedente(e.bande):null;
+    if(taux>=1) return suiv
+      ? {action:"Augmenter",txt:`Toutes les séries bouclées : passe à la bande ${suiv.nom} (${suiv.kg} kg) la prochaine fois.`}
+      : {action:"Augmenter",txt:`Bande la plus dure déjà atteinte : ajoute 2 répétitions (${reps}→${reps+2}) ou éloigne-toi de l'ancrage pour tendre davantage.`};
+    if(taux<0.7) return prec
+      ? {action:"Alléger",txt:`Moins de 70 % des séries bouclées : redescends à la bande ${prec.nom} (${prec.kg} kg).`}
+      : {action:"Alléger",txt:`Trop dur même sur la bande la plus souple : rapproche-toi de l'ancrage pour réduire la tension.`};
+    return {action:"Maintenir",txt:`Garde cette bande jusqu'à boucler toutes les séries proprement.`};
+  }
   if(taux>=1 && charge>0){
     const pas=charge<10?1:2;
     return {action:"Augmenter",txt:`Toutes les séries bouclées : passe à ${charge+pas} kg la prochaine fois.`};
@@ -2072,7 +2272,7 @@ function renderDebrief(an){
     for(const e of b.exos){
       const cls=e.conseil.action==="Augmenter"?"up":(e.conseil.action==="Alléger"||e.conseil.action==="Non fait")?"down":"keep";
       h+=`<div class="dbg-exo">
-        <div><b>${esc(e.nom)}</b> <span class="cote-meta">${e.done}/${e.prevu} × ${e.reps}${e.poids?` · ${e.poids} kg`:""}</span></div>
+        <div><b>${esc(e.nom)}</b> <span class="cote-meta">${e.done}/${e.prevu} × ${e.reps}${e.mode==="bande"?(e.bande?` · bande ${esc((bandeById(e.bande)||{}).nom||"")}`:" · élastique"):(e.poids?` · ${e.poids} kg`:"")}</span></div>
         <div class="dbg-act ${cls}">${e.conseil.action}</div>
         <div class="muted" style="grid-column:1/-1;font-size:12px">${esc(e.conseil.txt)}</div>
       </div>`;
@@ -2141,13 +2341,39 @@ async function lancerAnalyseIA(id){
       const m=S.muscles[zid]||{pts:0,n:0,last:null};
       aptitudes[zl]={points:Math.round(m.pts),seances:m.n,dernier:m.last};
     }
+    // journées de repos et courbatures des 14 derniers jours
+    const lim=new Date(); lim.setDate(lim.getDate()-14);
+    const limK=todayKey(lim);
+    const repos=(S.histoSeances||[]).filter(h=>h.repos&&h.d>=limK).map(h=>({
+      date:h.d, niveau:h.niveau||"",
+      zones:(h.zonesRepos||[]).map(z=>(ZONES.find(x=>x[0]===z)||[])[1]).filter(Boolean),
+      note:h.note||""
+    }));
+    const missions14=(S.histoSeances||[]).filter(h=>!h.repos&&h.d>=limK).length;
+    const derniere=(S.histoSeances||[]).find(h=>!h.repos);
+    const joursDepuis=derniere?Math.round((new Date(todayKey())-new Date(derniere.d))/864e5):null;
+
     const payload={
       profil:{
-        niveau:"débutant",
+        niveau:"grand débutant — premières semaines d'entraînement, aucune base de force",
+        anciennete_missions:(typeof nbMissions==="function")?nbMissions():0,
         objectif:"esthétique définie (abdos, biceps, pectoraux, fessiers), pas de volume maximal",
-        frequence:"2 à 3 séances par semaine, 30 à 40 min",
-        materiel:["haltères","bandes de résistance","banc","roue abdominale","poignées de pompes","barre de traction"],
+        frequence_visee:`${(S.settings&&S.settings.objSeances)||3} séances par semaine, 30 à 40 min, souvent au réveil`,
+        materiel:["haltères","bandes de résistance SmartWorkout","banc","roue abdominale","poignées de pompes","barre de traction"],
         contrainte:"pied fragile : aucun exercice à impact (ni course, ni corde à sauter, ni sauts)"
+      },
+      charges_utilisees:an.bilan.exos.map(e=>({
+        exercice:e.nom, series:`${e.done}/${e.prevu}`, reps:e.reps,
+        type:e.mode==="bande"?"élastique":"charge libre",
+        bande:e.mode==="bande"?((bandeById(e.bande)||{}).nom||"non choisie"):null,
+        resistance_kg:e.poids
+      })),
+      bandes_disponibles:(typeof bandes==="function")?bandes().map(b=>({nom:b.nom,kg:b.kg})):[],
+      echauffement:an.bilan.ech||null,
+      recuperation:{
+        jours_repos_consignes_14j:repos,
+        missions_14j:missions14,
+        jours_depuis_derniere_seance:joursDepuis
       },
       seance:an.bilan,
       indice:an.indice,
@@ -2160,11 +2386,17 @@ async function lancerAnalyseIA(id){
 DONNÉES : ${JSON.stringify(payload)}
 
 Contraintes de réponse :
-- Reste réaliste pour un débutant : progression graduelle, pas de programme extrême.
+- Il s'agit d'un GRAND DÉBUTANT. Priorité absolue : régularité, technique et plaisir, avant la charge. Ne propose jamais d'ajouter des exercices ou des séries à ce stade.
+- Progression très graduelle : au maximum +1 kg sur les petits mouvements (curl, élévations), +2 kg sur les gros, et seulement si toutes les séries ont été bouclées sans difficulté.
+- Pour les exercices à l'élastique, la progression se fait en passant à la bande immédiatement supérieure de la liste "bandes_disponibles", ou en ajoutant des répétitions, jamais en kilos. Nomme la bande précise à utiliser.
+- Prends en compte les charges réellement utilisées (champ "charges_utilisees") et commente-les concrètement.
+- Prends en compte les journées de repos et les courbatures signalées (champ "recuperation") : si des zones étaient douloureuses récemment, recommande explicitement la prudence sur ces zones. Ne culpabilise JAMAIS le repos : c'est une bonne décision d'entraînement.
+- Si la reprise suit plusieurs jours d'arrêt, conseille de reprendre à 60-70 % des charges.
+- Commente l'échauffement s'il n'a pas été fait.
 - Ne propose JAMAIS d'exercice à impact (course, sauts, corde à sauter).
 - Utilise uniquement le matériel listé.
 - Aucun conseil médical ni nutritionnel chiffré.
-- Sois concret et chiffré sur les charges et répétitions.
+- Sois concret et chiffré, mais bienveillant : 3 ajustements maximum.
 
 Réponds UNIQUEMENT avec un JSON valide, sans balises markdown :
 {"synthese":"2-3 phrases sur cette séance et la tendance",
@@ -2716,12 +2948,35 @@ function renderBase(){
     <button class="btn ghost small" onclick="document.querySelector('[data-page=seances]').click();ouvrirActivite()">▲ Sortie</button>
     <button class="btn ghost small" onclick="document.querySelector('[data-page=seances]').click();ouvrirRepos()">◦ Repos</button></div>`;
   const noteSensible=sensibles.length?`<p class="hand" style="font-size:11px">Encore sensible : ${sensibles.map(z=>ZONES.find(x=>x[0]===z)[1]).join(", ")} — allège ou évite ces zones.</p>`:"";
+
+  // Reprise : combien de jours depuis la dernière vraie séance
+  const derniere=S.histoSeances.find(h=>!h.repos);
+  let joursOff=null;
+  if(derniere) joursOff=Math.round((new Date(todayKey())-new Date(derniere.d))/864e5);
+  const totalMissions=(typeof nbMissions==="function")?nbMissions():0;
+  let noteReprise="";
+  if(joursOff!==null&&joursOff>=4)
+    noteReprise=`<p class="dbg-warn" style="font-size:12px;margin:8px 0">${joursOff} jours sans séance — reprends à 60-70 % de tes charges et arrête-toi en te disant que tu aurais pu en faire plus.</p>`;
+  else if(totalMissions>0&&totalMissions<6)
+    noteReprise=`<p class="cote-meta" style="margin:6px 0">Séance ${totalMissions+1} — à ce stade, la régularité et la technique comptent bien plus que la charge.</p>`;
+
+  // Consignes retenues du dernier débriefing
+  let consignes="";
+  const derAn=(S.analyses||[]).find(a=>!a.ext&&a.bilan&&a.bilan.exos&&a.bilan.exos.length);
+  if(derAn){
+    const up=derAn.bilan.exos.filter(e=>e.conseil&&e.conseil.action==="Augmenter")
+      .map(e=>`${e.nom}${e.poids>0?` → ${e.poids+(e.poids<10?1:2)} kg`:` → ${e.reps+2} reps`}`);
+    const down=derAn.bilan.exos.filter(e=>e.conseil&&e.conseil.action==="Alléger").map(e=>`${e.nom} → alléger`);
+    const tout=[...up,...down].slice(0,4);
+    if(tout.length) consignes=`<div class="cote-meta" style="margin-top:8px">Consignes du dernier débriefing :</div>
+      <ul style="margin:4px 0 0 16px;font-size:12.5px">${tout.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`;
+  }
   $("#baseSeance").innerHTML=`<h2>Ordre du jour</h2>`+(
     enRepos?`<p class="hand">Journée de repos consignée. C'est une décision d'entraînement, pas une absence.</p>${noteSensible}`
     :dejaAujourdhui?`<p class="hand">Mission du jour accomplie. Repos, reprise demain.</p>`
     :S.enCours?`<p>Une mission est en cours.</p><button class="btn signal" onclick="document.querySelector('[data-page=seances]').click()">Reprendre</button>`
     :suggestion?`<p>Mission recommandée :</p><p><b>${esc(suggestion.nom)}</b>${zfLabel?`<br><span class="hand" style="font-size:16px">objectif : renforcer ${zfLabel}</span>`:""}</p><div class="spacer"></div>
-      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer la mission · +120 pts</button>${noteSensible}`
+      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer la mission · +120 pts</button>${noteSensible}${noteReprise}${consignes}`
     :`<p class="muted">Aucune séance au programme.</p>`)+btnSortie;
 
   // Poids
@@ -2759,11 +3014,15 @@ function renderCarnet(){
   renderSkinPicker();
   if(typeof renderIAConfig==="function") renderIAConfig();
   $("#setProt").value=S.settings.prot;
+  if($("#setObjS")) $("#setObjS").value=S.settings.objSeances||3;
+  if($("#setObjP")) $("#setObjP").value=S.settings.objPesees||2;
   $("#protCible").textContent=S.settings.prot;
 }
 $("#btnSaveSettings").onclick=()=>{
   S.settings.prot=Math.max(60,Math.min(260,+$("#setProt").value||130));
-  save(); renderCarnet(); toast("Réglages enregistrés");
+  S.settings.objSeances=Math.max(1,Math.min(7,+$("#setObjS").value||3));
+  S.settings.objPesees=Math.max(1,Math.min(7,+$("#setObjP").value||2));
+  save(); renderBase(); renderCarnet(); toast("Réglages enregistrés");
 };
 $("#btnExport").onclick=()=>{
   const blob=new Blob([JSON.stringify(S,null,1)],{type:"application/json"});
@@ -2795,7 +3054,7 @@ function boot(){
   queteCourante();
   applySkin(S.settings.skin||"orbite");
   if(typeof initSyncUI==="function"){ initSyncUI(); renderSync(); if(syncActif()) syncMaintenant(true); }
-  renderHeader(); renderBase(); renderSeances(); renderPoids(); renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses(); renderSpatial(); renderModeProgramme();
+  renderHeader(); renderBase(); renderSeances(); renderPoids(); renderRecettes(); renderSemaine(); renderCarnet(); renderAnalyses(); renderSpatial(); renderModeProgramme(); renderBandes();
   checkJalons();
 }
 function tickClock(){
