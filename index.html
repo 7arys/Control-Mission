@@ -776,8 +776,9 @@ function load(){
   if(typeof migrerBandes==="function") migrerBandes();
 }
 function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0); }
+let BOOT=true;
 function save(){
-  S.stamp=Date.now();
+  if(!BOOT) S.stamp=Date.now();
   localStorage.setItem("expedition", JSON.stringify(S));
   if(typeof syncPlanifier==="function") syncPlanifier();
 }
@@ -2638,14 +2639,35 @@ const CHAPITRES=[
    ], gain:"Programme accompli"},
 ];
 
-const JEU_DEF={tokens:0,res:{alliage:0,composants:0,glace:0},sondes:[],construits:{},chapitre:0,sondesTotal:0};
+const JEU_DEF={gains:{},depenses:{},jetonsG:{},jetonsU:{},sondes:[],recoltees:{},construits:{},chapitre:0,sondesTotal:0};
 function jeu(){
-  if(!S.jeu) S.jeu=JSON.parse(JSON.stringify(JEU_DEF));
-  S.jeu.res=Object.assign({alliage:0,composants:0,glace:0},S.jeu.res||{});
-  if(!Array.isArray(S.jeu.sondes)) S.jeu.sondes=[];
-  if(!S.jeu.construits) S.jeu.construits={};
-  return S.jeu;
+  if(!S.jeu) S.jeu=clone(JEU_DEF);
+  const j=S.jeu;
+  // migration depuis l'ancien modèle (compteurs uniques, non fusionnables)
+  if(j.res!==undefined || j.tokens!==undefined){
+    const d=devId();
+    j.gains=j.gains||{};
+    j.gains[d]=Object.assign({alliage:0,composants:0,glace:0}, j.gains[d]||{}, j.res||{});
+    j.jetonsG=j.jetonsG||{};
+    j.jetonsG[d]=(j.jetonsG[d]||0)+(+j.tokens||0);
+    delete j.res; delete j.tokens;
+  }
+  j.gains=j.gains||{}; j.depenses=j.depenses||{};
+  j.jetonsG=j.jetonsG||{}; j.jetonsU=j.jetonsU||{};
+  j.recoltees=j.recoltees||{};
+  if(!Array.isArray(j.sondes)) j.sondes=[];
+  if(!j.construits) j.construits={};
+  return j;
 }
+function sommeMap(map,cle){
+  let t=0;
+  for(const v of Object.values(map||{})) t+=cle?(+((v||{})[cle])||0):(+v||0);
+  return t;
+}
+function res(r){ const j=jeu(); return Math.round((sommeMap(j.gains,r)-sommeMap(j.depenses,r))*10)/10; }
+function tokens(){ const j=jeu(); return Math.max(0, sommeMap(j.jetonsG)-sommeMap(j.jetonsU)); }
+function ajouterRes(r,v){ const j=jeu(),d=devId(); j.gains[d]=j.gains[d]||{}; j.gains[d][r]=(j.gains[d][r]||0)+v; }
+function depenserRes(r,v){ const j=jeu(),d=devId(); j.depenses[d]=j.depenses[d]||{}; j.depenses[d][r]=(j.depenses[d][r]||0)+v; }
 function nbSlots(){ const c=jeu().chapitre; return 1+(c>=1?1:0)+(c>=3?1:0); }
 function ciblesDispo(){ return CIBLES.filter(c=>jeu().chapitre>=c.chap); }
 function chapitreCourant(){ return CHAPITRES[Math.min(jeu().chapitre,CHAPITRES.length-1)]; }
@@ -2654,10 +2676,13 @@ function programmeFini(){ return jeu().chapitre>=CHAPITRES.length; }
 /* --- jetons de lancement : gagnés uniquement par l'effort réel --- */
 function gagnerJeton(n,raison){
   if(typeof modActif==="function" && !modActif("spatial")) return;
-  const j=jeu();
-  j.tokens=Math.min(6,j.tokens+(n||1));
+  const j=jeu(),d=devId();
+  const place=Math.max(0, 6-tokens());
+  const ajout=Math.min(place, n||1);
+  if(ajout<=0){ return; }
+  j.jetonsG[d]=(j.jetonsG[d]||0)+ajout;
   save();
-  setTimeout(()=>toast(`${n>1?n+" jetons":"Jeton"} de lancement disponible${n>1?"s":""}`,raison||""),3400);
+  setTimeout(()=>toast(`${ajout>1?ajout+" jetons":"Jeton"} de lancement disponible${ajout>1?"s":""}`,raison||""),3400);
   renderSpatial(); renderHeader();
 }
 
@@ -2676,10 +2701,12 @@ function fmtDuree(ms){
 function lancerSonde(cibleId){
   const j=jeu();
   const c=CIBLES.find(x=>x.id===cibleId); if(!c) return;
-  if(j.tokens<1){ toast("Aucun jeton — accomplis une mission"); return; }
+  if(tokens()<1){ toast("Aucun jeton — accomplis une mission"); return; }
   if(j.sondes.length>=nbSlots()){ toast("Tous les emplacements sont occupés"); return; }
-  j.tokens--; j.sondesTotal=(j.sondesTotal||0)+1;
-  j.sondes.push({id:uid(),cible:c.id,depart:Date.now(),duree:c.h*3600*1000});
+  const d=devId();
+  j.jetonsU[d]=(j.jetonsU[d]||0)+1;
+  j.sondesTotal=(j.sondesTotal||0)+1;
+  j.sondes.push({id:uid(),cible:c.id,depart:Date.now(),duree:c.h*3600*1000,par:d});
   save(); checkJalons();
   $("#dlgSonde")&&$("#dlgSonde").close();
   toast(`Sonde en route vers ${c.nom} — retour dans ${c.h} h`,"Lancement");
@@ -2696,11 +2723,13 @@ function recolterSondes(){
     for(const [r,[a,b]] of Object.entries(c.gains)){
       const v=a+Math.floor(Math.random()*(b-a+1));
       total[r]=(total[r]||0)+v;
-      j.res[r]=(j.res[r]||0)+v;
+      ajouterRes(r,v);
     }
-    if(Math.random()<0.08){ decouverte=true; j.res.composants+=15; total.composants=(total.composants||0)+15; }
+    if(Math.random()<0.08){ decouverte=true; ajouterRes("composants",15); total.composants=(total.composants||0)+15; }
   }
-  j.sondes=j.sondes.filter(s=>!etatSonde(s).fini);
+  const auj=todayKey();
+  for(const s of prets) j.recoltees[s.id]=auj;
+  j.sondes=j.sondes.filter(s=>!j.recoltees[s.id]);
   save();
   const txt=Object.entries(total).map(([r,v])=>`+${v} ${RES.find(x=>x[0]===r)[1]}`).join(" · ");
   toast(txt, decouverte?"Récolte + découverte !":"Récolte");
@@ -2710,7 +2739,7 @@ function recolterSondes(){
 /* --- construction --- */
 function peutConstruire(m){
   const j=jeu();
-  return Object.entries(m.cout).every(([r,v])=>(j.res[r]||0)>=v);
+  return Object.entries(m.cout).every(([r,v])=>res(r)>=v);
 }
 function construire(chapId,modId){
   const ch=CHAPITRES.find(c=>c.id===chapId); if(!ch) return;
@@ -2718,7 +2747,7 @@ function construire(chapId,modId){
   const j=jeu();
   if(j.construits[chapId+"/"+modId]){ return; }
   if(!peutConstruire(m)){ toast("Matériaux insuffisants"); return; }
-  for(const [r,v] of Object.entries(m.cout)) j.res[r]-=v;
+  for(const [r,v] of Object.entries(m.cout)) depenserRes(r,v);
   j.construits[chapId+"/"+modId]=todayKey();
   save();
   toast(m.nom+" assemblé","Construction");
@@ -2747,7 +2776,7 @@ function renderSpatial(){
   const totalFaits=CHAPITRES.reduce((a,c)=>a+c.modules.filter(m=>estConstruit(c.id,m.id)).length,0);
 
   let h=`<div class="seance-head"><h2 style="margin:0">${fini?"Programme accompli":esc(ch.nom)}</h2>
-    <span class="tag">${j.tokens} jeton${j.tokens>1?"s":""}</span></div>`;
+    <span class="tag">${tokens()} jeton${tokens()>1?"s":""}</span></div>`;
 
   // LA SCÈNE : ce que tu construis, visible
   h+=`<svg id="chantier" preserveAspectRatio="none" aria-label="Chantier en cours"></svg>`;
@@ -2778,7 +2807,7 @@ function renderSpatial(){
 
   // ressources
   h+=`<div class="sp-res">${RES.map(([id,nom,ic])=>
-    `<div><b>${ic} ${Math.round(j.res[id]||0)}</b><span>${nom}</span></div>`).join("")}</div>`;
+    `<div><b>${ic} ${Math.round(res(id))}</b><span>${nom}</span></div>`).join("")}</div>`;
 
   // sondes
   h+=`<div class="sp-sondes">`;
@@ -2786,7 +2815,7 @@ function renderSpatial(){
     const s=j.sondes[i];
     if(!s){
       h+=`<div class="sp-slot libre"><span class="sp-cible">Emplacement libre</span>
-        <span class="cote-meta">${j.tokens>0?"prêt au lancement":"une mission = un jeton"}</span></div>`;
+        <span class="cote-meta">${tokens()>0?"prêt au lancement":"une mission = un jeton"}</span></div>`;
     } else {
       const c=CIBLES.find(x=>x.id===s.cible)||{nom:"?"};
       const e=etatSonde(s);
@@ -2799,7 +2828,7 @@ function renderSpatial(){
   h+=`</div>`;
   h+=`<div class="row" style="margin-top:10px">
     ${prets?`<button class="btn signal" onclick="recolterSondes()">Récolter ${prets} sonde${prets>1?"s":""}</button>`:""}
-    <button class="btn ${prets?"ghost":"signal"}" onclick="ouvrirSonde()" ${(j.tokens<1||j.sondes.length>=slots)?"disabled":""}>Lancer une sonde</button>
+    <button class="btn ${prets?"ghost":"signal"}" onclick="ouvrirSonde()" ${(tokens()<1||j.sondes.length>=slots)?"disabled":""}>Lancer une sonde</button>
   </div>`;
 
   w.innerHTML=h;
@@ -2826,7 +2855,7 @@ function ouvrirAtelier(){ renderAtelier(); $("#dlgAtelier").showModal(); }
 function renderAtelier(){
   const j=jeu(), w=$("#dlgAtelierBody"); if(!w) return;
   let h=`<div class="sp-res">${RES.map(([id,nom,ic])=>
-    `<div><b>${ic} ${Math.round(j.res[id]||0)}</b><span>${nom}</span></div>`).join("")}</div>`;
+    `<div><b>${ic} ${Math.round(res(id))}</b><span>${nom}</span></div>`).join("")}</div>`;
   CHAPITRES.forEach((ch,i)=>{
     const verrou=i>j.chapitre;
     const faits=ch.modules.filter(m=>j.construits[ch.id+"/"+m.id]).length;
@@ -2836,7 +2865,7 @@ function renderAtelier(){
       const fait=!!j.construits[ch.id+"/"+m.id];
       const ok=peutConstruire(m);
       const cout=Object.entries(m.cout).map(([r,v])=>{
-        const manque=(j.res[r]||0)<v;
+        const manque=res(r)<v;
         return `<span class="${manque?"sp-manque":""}">${v} ${RES.find(x=>x[0]===r)[1]}</span>`;
       }).join(" · ");
       h+=`<div class="sp-mod ${fait?"fait":""}">
@@ -2980,7 +3009,7 @@ function prochainePiece(){
   if(!m) return null;
   const manque={};
   for(const [r,v] of Object.entries(m.cout)){
-    const d=v-(j.res[r]||0);
+    const d=v-res(r);
     if(d>0) manque[r]=d;
   }
   return {chap:ch,module:m,manque};
@@ -3106,13 +3135,55 @@ function fusion(L,R){
   for(const x of (L.recettes||[])) mR.set(x.id,x);
   out.recettes=[...mR.values()];
 
-  // programme spatial : version la plus récente, constructions unies
+  // programme spatial : fusion sans perte, ordre indépendant
   if(R.jeu||L.jeu){
-    const base=distant?(R.jeu||L.jeu):(L.jeu||R.jeu);
-    out.jeu=JSON.parse(JSON.stringify(base));
-    out.jeu.construits=Object.assign({},(R.jeu||{}).construits||{},(L.jeu||{}).construits||{});
-    out.jeu.chapitre=Math.max((R.jeu||{}).chapitre||0,(L.jeu||{}).chapitre||0);
-    out.jeu.sondesTotal=Math.max((R.jeu||{}).sondesTotal||0,(L.jeu||{}).sondesTotal||0);
+    const A=R.jeu||{}, B=L.jeu||{};
+    const maxParCle=(x,y)=>{
+      const o=Object.assign({},x||{});
+      for(const [k,v] of Object.entries(y||{})){
+        if(typeof v==="object"&&v){
+          o[k]=Object.assign({},o[k]||{});
+          for(const [k2,v2] of Object.entries(v)) o[k][k2]=Math.max(+((o[k]||{})[k2])||0, +v2||0);
+        } else o[k]=Math.max(+o[k]||0, +v||0);
+      }
+      return o;
+    };
+    const recoltees=Object.assign({},A.recoltees||{},B.recoltees||{});
+    const parId=new Map();
+    for(const s of (A.sondes||[])) parId.set(s.id,s);
+    for(const s of (B.sondes||[])) parId.set(s.id,s);
+    out.jeu={
+      // compteurs cumulés par appareil : on prend le maximum de chaque compteur
+      gains:      maxParCle(A.gains,B.gains),
+      depenses:   maxParCle(A.depenses,B.depenses),
+      jetonsG:    maxParCle(A.jetonsG,B.jetonsG),
+      jetonsU:    maxParCle(A.jetonsU,B.jetonsU),
+      // sondes : union des deux appareils, moins celles déjà récoltées
+      sondes:     [...parId.values()].filter(s=>!recoltees[s.id]).sort((a,b)=>a.depart-b.depart),
+      recoltees:  recoltees,
+      construits: Object.assign({},A.construits||{},B.construits||{}),
+      chapitre:   Math.max(A.chapitre||0, B.chapitre||0),
+      sondesTotal:Math.max(A.sondesTotal||0, B.sondesTotal||0),
+    };
+
+    // la limite d'emplacements reste la règle : deux appareils ne peuvent pas
+    // faire voler plus de sondes que le programme ne le permet
+    const slots=1+(out.jeu.chapitre>=1?1:0)+(out.jeu.chapitre>=3?1:0);
+    if(out.jeu.sondes.length>slots){
+      const gardees=out.jeu.sondes.slice(0,slots);       // les plus anciennes partent en premier
+      const annulees=out.jeu.sondes.slice(slots);
+      for(const s of annulees){
+        // le jeton est rendu à l'appareil qui l'avait dépensé
+        let d=s.par;
+        if(!d || !(out.jeu.jetonsU[d]>0))
+          d=Object.keys(out.jeu.jetonsU).find(k=>out.jeu.jetonsU[k]>0);
+        if(d) out.jeu.jetonsU[d]=Math.max(0,(out.jeu.jetonsU[d]||0)-1);
+        out.jeu.recoltees[s.id]="annulee";
+        out.jeu.sondesTotal=Math.max(0,(out.jeu.sondesTotal||0)-1);
+      }
+      out.jeu.sondes=gardees;
+      out.jeu._annulees=annulees.length;
+    }
   }
 
   // configuration : la version la plus récemment modifiée l'emporte
@@ -3157,16 +3228,20 @@ async function syncMaintenant(silencieux){
   try{ localStorage.setItem("expedition_backup",JSON.stringify(S)); }catch(e){}
   try{
     const distant=await syncPull();
+    let annulees=0;
     if(distant){
       S=fusion(S,distant);
       S.altitude=totalAlt();
+      if(S.jeu&&S.jeu._annulees){ annulees=S.jeu._annulees; delete S.jeu._annulees; }
       localStorage.setItem("expedition",JSON.stringify(S));
     }
     await syncPush(pourEnvoi(S));
     SYNC.dernier=new Date();
     syncEtat("Synchronisé à "+SYNC.dernier.toLocaleTimeString("fr-FR"));
     rerender();
-    if(!silencieux) toast("Synchronisation terminée");
+    if(annulees)
+      toast(`${annulees} sonde${annulees>1?"s":""} annulée${annulees>1?"s":""} : un seul vol à la fois selon tes emplacements. Jeton${annulees>1?"s":""} rendu${annulees>1?"s":""}.`,"Emplacements dépassés");
+    else if(!silencieux) toast("Synchronisation terminée");
   }catch(e){
     syncEtat("Échec : "+e.message+" — données locales intactes");
     if(!silencieux) toast("Échec de synchro : "+e.message);
@@ -3370,6 +3445,7 @@ $("#inImport").addEventListener("change",async e=>{
 $("#btnReset").onclick=()=>{
   if(confirm("Tout effacer et repartir de l'aire de lancement ? (pense à exporter avant)")&&confirm("Vraiment sûr ? C'est définitif.")){
     localStorage.removeItem("expedition"); load(); boot();
+BOOT=false;   // à partir d'ici, toute écriture horodate vraiment la configuration
   }
 };
 
@@ -3424,5 +3500,6 @@ function tickClock(){
 setInterval(tickClock,1000); tickClock();
 setInterval(()=>{ if(typeof jeu==="function"&&jeu().sondes.length){ renderHeader(); renderSpatial(); } },30000);
 load(); boot();
+BOOT=false;   // à partir d'ici, toute écriture horodate vraiment la configuration
 </script>
 </body></html>
