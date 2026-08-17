@@ -1020,12 +1020,28 @@ function msgErr(nom,code){
   if(code===404) return nom+" : modèle introuvable";
   return nom+" : erreur "+code;
 }
-/* --- appel attendant du JSON --- */
+/* --- appel attendant du JSON, tolérant aux réponses mal formées --- */
+function parseJsonSouple(txt){
+  let s=String(txt||"").replace(/```json|```/g,"").trim();
+  const a=s.indexOf("{"), b=s.lastIndexOf("}");
+  if(a>=0&&b>a) s=s.slice(a,b+1);
+  try{ return JSON.parse(s); }catch(e){}
+  let r=s.replace(/,\s*([}\]])/g,"$1").replace(/\r/g,"");
+  r=r.replace(/"((?:[^"\\]|\\.)*)"/g,function(m,inner){ return '"'+inner.replace(/\n/g,"\\n")+'"'; });
+  try{ return JSON.parse(r); }catch(e){}
+  throw new Error("format illisible");
+}
 async function appelIAJson(prompt, maxTokens){
   const txt=await appelIA(prompt,maxTokens);
-  const net=txt.replace(/```json|```/g,"").trim();
-  const a=net.indexOf("{"), b=net.lastIndexOf("}");
-  return JSON.parse(a>=0&&b>a?net.slice(a,b+1):net);
+  try{ return parseJsonSouple(txt); }
+  catch(e){
+    const rattrapage=await appelIA(
+      "Reformate le contenu ci-dessous en JSON STRICTEMENT valide. "+
+      "Aucune balise markdown, aucun commentaire, aucun guillemet double a l'interieur des textes, "+
+      "aucun retour a la ligne dans les valeurs. Reponds uniquement le JSON.\n\n"+String(txt).slice(0,6000),
+      maxTokens);
+    return parseJsonSouple(rattrapage);
+  }
 }
 
 /* ============ Réglages ============ */
@@ -1069,6 +1085,14 @@ function renderIAConfig(){
 /* ============ Échauffement ============ */
 const ECHAUF_DEFAUT=[
   "Rotations articulaires — chevilles, genoux, hanches, épaules, nuque · 60 s, sans à-coups",
+  "Marche sur place, montées de genoux lentes · 90 s, jusqu'à avoir un peu chaud",
+  "Cercles de bras, petits puis grands · 45 s",
+  "Chat-vache (mobilité du dos, à quatre pattes) · 8 allers-retours lents",
+  "Ouverture de hanches : fente basse alternée, sans à-coups · 30 s par côté",
+];
+// ancienne liste : contenait des exercices en doublon avec la séance
+const ECHAUF_V1=[
+  "Rotations articulaires — chevilles, genoux, hanches, épaules, nuque · 60 s, sans à-coups",
   "Marche sur place ou pas chassés lents · 90 s, jusqu'à avoir un peu chaud",
   "Cercles de bras + passages de bande au-dessus de la tête · 45 s",
   "Chat-vache (mobilité du dos, à quatre pattes) · 8 allers-retours lents",
@@ -1079,6 +1103,9 @@ const RETOUR_CALME="Retour au calme : 2 à 3 min de respiration lente et d'étir
 
 function echList(){
   if(!Array.isArray(S.echauffement)||!S.echauffement.length) S.echauffement=[...ECHAUF_DEFAUT];
+  // remplace l'ancienne liste (doublons avec la séance) si elle n'a pas été personnalisée
+  if(S.echauffement.length===ECHAUF_V1.length && S.echauffement.every((l,i)=>l===ECHAUF_V1[i]))
+    S.echauffement=[...ECHAUF_DEFAUT];
   return S.echauffement;
 }
 function echEtat(){
@@ -1097,7 +1124,7 @@ function echBloc(){
     </div>
     ${items.map((t,i)=>`<div class="echauf-item ${etat[i]?"ok":""}" data-ech="${i}">
       <span class="echauf-box">${etat[i]?"✓":""}</span><span>${esc(t)}</span></div>`).join("")}
-    <div class="cote-meta" style="margin-top:6px">Puis 1 série d'approche à moitié de charge sur le premier exercice, avant les séries comptées.</div>
+    <div class="cote-meta" style="margin-top:6px">Puis, sur le premier exercice, une série d'approche plus facile : moitié de charge, ou moitié des répétitions au poids du corps. Elle ne compte pas.</div>
   </div>`;
 }
 function brancherEchauf(w){
@@ -1426,7 +1453,7 @@ function renderEnCours(){
     const pr=S.prs[e.nom];
     html+=`<div class="exo">
       <div class="exo-name">${esc(e.nom)}</div>
-      <div class="exo-meta">${e.series} × ${e.reps}${e.mode==="bande"?` · élastique`:""}${e.note?` · ${esc(e.note)}`:""}${pr?` · <span class="pr-note">record : ${pr} kg</span>`:""}${(e===s.exos[0]&&e.poids>0)?` · <span class="pr-note">approche : ${Math.max(1,Math.round(e.poids/2))} kg × 8</span>`:""}</div>
+      <div class="exo-meta">${e.series} × ${e.reps}${e.mode==="bande"?` · élastique`:""}${e.note?` · ${esc(e.note)}`:""}${pr?` · <span class="pr-note">record : ${pr} kg</span>`:""}${e===s.exos[0]?` · <span class="pr-note">approche : ${e.poids>0?Math.max(1,Math.round(e.poids/2))+" kg":"moitié des reps"}, non comptée</span>`:""}</div>
       <div class="sets">${done.map((d,i)=>`<span class="set-chip ${d?"done":""}" data-exo="${e.id}" data-i="${i}">${d?"✓":i+1}</span>`).join("")}
         ${e.mode==="bande"?selectBande(e):`<input type="number" step="0.5" min="0" placeholder="kg" value="${e.poids||""}" data-kg="${e.id}" style="width:74px;padding:6px" title="Charge utilisée (kg)">`}
       </div></div>`;
@@ -1584,7 +1611,8 @@ $("#reposValider").onclick=()=>validerRepos();
 function renderModeProgramme(){
   const w=$("#modeProgramme"); if(!w) return;
   w.innerHTML=modeSocle()
-    ? `<button class="btn ghost small" onclick="restaurerProgrammeComplet()">Programme A / B / C</button>`
+    ? `<button class="btn ghost small" onclick="recalibrerSocle()">Recalibrer le volume</button>
+       <button class="btn ghost small" onclick="restaurerProgrammeComplet()">Programme A / B / C</button>`
     : `<button class="btn ghost small" onclick="passerEnSeanceUnique()">Mode débutant · séance unique</button>`;
 }
 "use strict";
@@ -1597,15 +1625,29 @@ function seanceSocle(){
     return e;
   };
   return {id:uid(),nom:"Séance socle",exos:[
-    ex("Squat au poids du corps",3,15,0,"descente lente, talons au sol",["jambes"]),
-    ex("Pompes inclinées (mains sur le banc)",3,8,0,"descendre vers le sol quand ça devient facile",["pecs","triceps"]),
-    band("Développé debout à l'élastique",3,12,"b2","ancrage dans le dos",["pecs","epaules"]),
-    band("Élévations latérales à l'élastique",3,12,"b1","bras presque tendus, monter jusqu'aux épaules",["epaules"]),
-    ex("Curl haltères",3,12,5,"par haltère",["biceps"]),
-    band("Extensions triceps à l'élastique",3,15,"b2","coudes fixes, ancrage en hauteur",["triceps"]),
-    ex("Gainage (secondes)",3,30,0,"dos droit, fessiers serrés",["abdos"]),
-    ex("Crunch",3,12,0,"lent, sans tirer sur la nuque",["abdos"]),
+    ex("Squat au poids du corps",3,10,0,"descente lente, talons au sol",["jambes"]),
+    ex("Pompes inclinées (mains sur le banc)",3,6,0,"plus le banc est haut, plus c'est facile",["pecs","triceps"]),
+    band("Développé debout à l'élastique",3,10,"b2","ancrage dans le dos",["pecs","epaules"]),
+    band("Élévations latérales à l'élastique",3,10,"b1","bras presque tendus",["epaules"]),
+    ex("Curl haltères",3,10,5,"par haltère",["biceps"]),
+    band("Extensions triceps à l'élastique",3,12,"b2","coudes fixes",["triceps"]),
+    ex("Gainage (secondes)",3,20,0,"dos droit, fessiers serrés",["abdos"]),
+    ex("Crunch",3,10,0,"lent, sans tirer sur la nuque",["abdos"]),
   ]};
+}
+// remet le volume de départ sans toucher aux charges et bandes déjà choisies
+function recalibrerSocle(){
+  const s=S.seances.find(x=>x.nom==="Séance socle");
+  if(!s){ toast("Aucune séance socle"); return; }
+  if(!confirm("Ramener séries et répétitions au volume de départ ?\n\nTes charges et tes bandes sont conservées.")) return;
+  const base=seanceSocle();
+  for(const e of s.exos){
+    const ref=base.exos.find(x=>x.nom===e.nom);
+    if(ref){ e.series=ref.series; e.reps=ref.reps; }
+    else e.reps=Math.max(5,Math.round(e.reps*0.75));
+  }
+  save(); renderSeances();
+  toast("Volume ramené au niveau débutant");
 }
 function passerEnSeanceUnique(){
   if(!confirm("Remplacer le programme par une séance socle unique, répétée à chaque fois ?\n\nTes missions déjà accomplies et tes aptitudes sont conservées.")) return;
@@ -2205,7 +2247,8 @@ function construireBilan(s, setsMap, dureeMin, libre, musclesAvant, prs){
     for(const z of zs) parZone[z]=(parZone[z]||0)+(done*e.reps*(charge||8))/zs.length;
     exos.push({nom:e.nom,done,prevu,reps:e.reps,poids:charge,vol:v,zones:zs,
                mode:e.mode||"kg", bande:e.bande||null,
-               conseil:conseilExo(done,prevu,charge,e.reps,e)});
+               dejaComplet:exoPrecedentComplet(s.nom,e.nom),
+               conseil:conseilExo(done,prevu,charge,e.reps,e,{dejaComplet:exoPrecedentComplet(s.nom,e.nom)})});
   }
   // récupération : jours depuis le dernier travail de chaque zone
   const recup={};
@@ -2216,11 +2259,25 @@ function construireBilan(s, setsMap, dureeMin, libre, musclesAvant, prs){
   return {nom:s.nom, libre:!!libre, duree:dureeMin, vol:Math.round(vol),
           setsFaits, setsPrevus, exos, parZone, recup, prs:prs||[]};
 }
-function conseilExo(done,prevu,charge,reps,e){
+// l'exercice a-t-il déjà été bouclé intégralement la fois précédente ?
+function exoPrecedentComplet(nomSeance,nomExo){
+  const p=(S.analyses||[]).find(a=>!a.ext&&a.nom===nomSeance);
+  if(!p||!p.bilan||!p.bilan.exos) return false;
+  const x=p.bilan.exos.find(y=>y.nom===nomExo);
+  return !!(x&&x.prevu>0&&x.done>=x.prevu);
+}
+function conseilExo(done,prevu,charge,reps,e,ctx){
+  ctx=ctx||{};
   if(prevu===0) return {action:"—",txt:"Aucune série enregistrée."};
   if(done===0) return {action:"Non fait",txt:"Exercice sauté cette fois — à replacer dès la prochaine séance."};
   const taux=done/prevu;
   const bande=(e&&e.mode==="bande");
+  // séance ressentie difficile : on ne monte jamais
+  if(taux>=1 && ctx.ressenti==="dur")
+    return {action:"Consolider",txt:`Séries bouclées mais séance ressentie difficile : refais exactement la même chose la prochaine fois.`};
+  // première fois complète : on valide avant de monter
+  if(taux>=1 && !ctx.dejaComplet && ctx.ressenti!=="facile")
+    return {action:"Consolider",txt:`Première fois où tu boucles tout : refais la même chose la prochaine fois pour confirmer, puis on augmentera.`};
   if(bande){
     const suiv=(typeof bandeSuivante==="function")?bandeSuivante(e.bande):null;
     const prec=(typeof bandePrecedente==="function")?bandePrecedente(e.bande):null;
@@ -2318,13 +2375,21 @@ function renderDebrief(an){
         ? `<p class="dbg-warn">⚠ Échauffement non coché. À froid — surtout le matin — c'est le facteur de risque numéro un pour un débutant. Cinq minutes suffisent.</p>`
         : `<p class="muted">Échauffement : ${ok}/${b.ech.total} étapes${ok===b.ech.total?" — complet ✓":""}.</p>`;
     }
+    h+=`<h3 class="dbg-h">Comment as-tu ressenti la séance ?</h3>
+      <div class="pickrow">
+        ${[["facile","Facile"],["ok","Correcte"],["dur","Difficile"]].map(([id,lab])=>
+          `<button class="pick ${an.ressenti===id?"on":""}" onclick="setRessenti('${an.id}','${id}')">${lab}</button>`).join("")}
+      </div>
+      <p class="cote-meta" style="margin-top:6px">${an.ressenti?"Les consignes ci-dessous en tiennent compte.":"Réponds pour affiner les consignes de progression."}</p>`;
     h+=`<h3 class="dbg-h">Ajustements pour la prochaine fois</h3>`;
     for(const e of b.exos){
-      const cls=e.conseil.action==="Augmenter"?"up":(e.conseil.action==="Alléger"||e.conseil.action==="Non fait")?"down":"keep";
+      const cons=conseilExo(e.done,e.prevu,e.poids,e.reps,e,{dejaComplet:e.dejaComplet,ressenti:an.ressenti});
+      e.conseil=cons;
+      const cls=cons.action==="Augmenter"?"up":(cons.action==="Alléger"||cons.action==="Non fait")?"down":"keep";
       h+=`<div class="dbg-exo">
         <div><b>${esc(e.nom)}</b> <span class="cote-meta">${e.done}/${e.prevu} × ${e.reps}${e.mode==="bande"?(e.bande?` · bande ${esc((bandeById(e.bande)||{}).nom||"")}`:" · élastique"):(e.poids?` · ${e.poids} kg`:"")}</span></div>
-        <div class="dbg-act ${cls}">${e.conseil.action}</div>
-        <div class="muted" style="grid-column:1/-1;font-size:12px">${esc(e.conseil.txt)}</div>
+        <div class="dbg-act ${cls}">${cons.action}</div>
+        <div class="muted" style="grid-column:1/-1;font-size:12px">${esc(cons.txt)}</div>
       </div>`;
     }
 
@@ -2378,6 +2443,17 @@ function renderIA(ia){
   return h;
 }
 
+function setRessenti(id,val){
+  const an=(S.analyses||[]).find(x=>x.id===id); if(!an) return;
+  an.ressenti=val;
+  // fige les conseils recalculés pour le tableau de bord
+  if(an.bilan&&an.bilan.exos)
+    for(const e of an.bilan.exos)
+      e.conseil=conseilExo(e.done,e.prevu,e.poids,e.reps,e,{dejaComplet:e.dejaComplet,ressenti:val});
+  save(); renderDebrief(an); renderAnalyses();
+  if(typeof renderBase==="function") renderBase();
+}
+
 /* --- Analyse IA --- */
 async function lancerAnalyseIA(id){
   const an=(S.analyses||[]).find(a=>a.id===id); if(!an) return;
@@ -2427,6 +2503,7 @@ async function lancerAnalyseIA(id){
       },
       seance:an.bilan,
       indice:an.indice,
+      ressenti_seance:an.ressenti||"non renseigné",
       historique_meme_seance:histo,
       aptitudes_par_zone:aptitudes,
       records_actuels:S.prs
@@ -2447,8 +2524,13 @@ Contraintes de réponse :
 - Utilise uniquement le matériel listé.
 - Aucun conseil médical ni nutritionnel chiffré.
 - Sois concret et chiffré, mais bienveillant : 3 ajustements maximum.
+- Ne propose une augmentation que si l'exercice a été bouclé intégralement ET que le ressenti n'est pas 'dur'. Sinon, recommande de refaire la même chose pour consolider.
+- Si le ressenti de séance est 'dur', ne propose AUCUNE augmentation.
 
-Réponds UNIQUEMENT avec un JSON valide, sans balises markdown :
+Format impératif : réponds UNIQUEMENT avec un JSON valide, sans balises markdown.
+N'utilise AUCUN guillemet double à l'intérieur des textes (utilise des apostrophes si besoin).
+N'utilise aucun retour à la ligne à l'intérieur des valeurs.
+Structure attendue :
 {"synthese":"2-3 phrases sur cette séance et la tendance",
  "points_forts":["..."],
  "a_corriger":["..."],
@@ -2460,7 +2542,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans balises markdown :
     if(box) box.innerHTML=renderIA(an.ia);
     renderAnalyses();
   }catch(e){
-    if(box) box.innerHTML=`<p class="muted">Analyse indisponible (${esc(e.message)}). Le bilan technique ci-dessus reste valable.</p>
+    if(box) box.innerHTML=`<p class="muted">Analyse indisponible : ${esc(e.message)}. Le bilan technique ci-dessus reste valable, et c&rsquo;est lui qui porte les consignes chiffrées.</p>
       <button class="btn ghost small" onclick="lancerAnalyseIA('${id}')">Réessayer</button>`;
   }
 }
@@ -3017,7 +3099,8 @@ function renderBase(){
     const up=derAn.bilan.exos.filter(e=>e.conseil&&e.conseil.action==="Augmenter")
       .map(e=>`${e.nom}${e.poids>0?` → ${e.poids+(e.poids<10?1:2)} kg`:` → ${e.reps+2} reps`}`);
     const down=derAn.bilan.exos.filter(e=>e.conseil&&e.conseil.action==="Alléger").map(e=>`${e.nom} → alléger`);
-    const tout=[...up,...down].slice(0,4);
+    const cons=derAn.bilan.exos.filter(e=>e.conseil&&e.conseil.action==="Consolider").map(e=>`${e.nom} → même chose`);
+    const tout=[...up,...down,...cons].slice(0,4);
     if(tout.length) consignes=`<div class="cote-meta" style="margin-top:8px">Consignes du dernier débriefing :</div>
       <ul style="margin:4px 0 0 16px;font-size:12.5px">${tout.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`;
   }
