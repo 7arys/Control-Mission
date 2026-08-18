@@ -477,6 +477,7 @@ dialog h2{font-size:14px}
           <select id="inMmUnit" style="max-width:76px"><option value="pct">%</option><option value="kg">kg</option></select>
         </span></label>
     </div>
+    <p class="cote-meta" style="margin:-2px 0 8px">Masse musculaire Withings : valeurs typiques 70 à 88 % (elle inclut l'eau corporelle).</p>
     <button class="btn signal" id="btnAddPoids">Consigner · +15 pts</button>
     <p class="muted" style="margin-top:8px">Astuce : la balance affiche le chiffre, tu le notes ici en 2 tapes. Pour recaler l'historique complet, importe le CSV Withings ci-dessous.</p>
   </div>
@@ -1761,8 +1762,8 @@ $("#btnAddPoids").onclick=()=>{
   const brut=parseFloat(String($("#inMm").value).replace(",","."))||null;
   const unite=$("#inMmUnit")?$("#inMmUnit").value:"pct";
   if(brut!=null){
-    if(unite==="pct"&&(brut<20||brut>70)){ toast("Masse musculaire en % attendue entre 20 et 70"); return; }
-    if(unite==="kg"&&(brut<10||brut>120)){ toast("Masse musculaire en kg attendue entre 10 et 120"); return; }
+    if(unite==="pct"&&(brut<35||brut>95)){ toast("Masse musculaire en % attendue entre 35 et 95"); return; }
+    if(unite==="kg"&&(brut<10||brut>130)){ toast("Masse musculaire en kg attendue entre 10 et 130"); return; }
   }
   const {mm,mmp}=normaliseMM(kg,brut,unite);
   if(S.settings){ S.settings.mmUnit=unite; }
@@ -1840,8 +1841,8 @@ function parseWithingsCsv(txt){
     if(iFatP>=0){ const v=parseFloat(String(c[iFatP]).replace(",",".")); if(v>2&&v<70) mg=v; }
     else if(iFat>=0){ const v=parseFloat(String(c[iFat]).replace(",",".")); if(v>1&&v<kg) mg=Math.round(v/kg*1000)/10; }
     let mm=null,mmp=null;
-    if(iMus>=0){ const v=parseFloat(String(c[iMus]).replace(",",".")); if(v>5&&v<kg+5){ mm=Math.round(v*10)/10; mmp=Math.round(v/kg*1000)/10; } }
-    if(mm==null&&iMusP>=0){ const v=parseFloat(String(c[iMusP]).replace(",",".")); if(v>20&&v<70){ mmp=Math.round(v*10)/10; mm=Math.round(kg*v/100*10)/10; } }
+    if(iMus>=0){ const v=parseFloat(String(c[iMus]).replace(",",".")); if(v>5&&v<=kg+2){ mm=Math.round(v*10)/10; mmp=Math.round(v/kg*1000)/10; } }
+    if(mm==null&&iMusP>=0){ const v=parseFloat(String(c[iMusP]).replace(",",".")); if(v>35&&v<98){ mmp=Math.round(v*10)/10; mm=Math.round(kg*v/100*10)/10; } }
     const ex=out.find(p=>p.d===d);
     if(!ex) out.push({d,kg:Math.round(kg*10)/10,mg,mm,mmp});
   }
@@ -1884,7 +1885,8 @@ function renderCompo(){
     ${carte("Masse grasse",der.mg," %","mg")}
     ${carte("Masse musculaire",der.mm," kg","mm",der.mmp!=null?der.mmp+" % du poids":"")}
   </div>
-  <p class="muted" style="margin-top:8px">Relevé du ${fmtDate(der.d)}. Le suivi se fait sur les <b>kilos</b> : le pourcentage baisse mécaniquement dès que tu prends du poids, même sans perdre un gramme de muscle. Sur une prise de masse, quelques centaines de grammes de muscle par mois est déjà un bon rythme.</p>`;
+  <p class="muted" style="margin-top:8px">Relevé du ${fmtDate(der.d)}. Le suivi se fait sur les <b>kilos</b> : le pourcentage baisse mécaniquement dès que tu prends du poids, même sans perdre un gramme de muscle.</p>
+  <p class="muted" style="margin-top:6px">À savoir : ce que Withings appelle masse musculaire correspond à la masse non grasse hors os — muscles, organes et <b>toute l'eau du corps</b>. D'où des valeurs élevées (75 à 85 % chez un homme mince) et des écarts d'un jour à l'autre qui reflètent surtout l'hydratation. Ne regarde que la tendance sur plusieurs semaines.</p>`;
 }
 // moyenne glissante sur 7 jours calendaires — c'est cette courbe qui compte,
 // pas les variations quotidiennes dues à l'hydratation
@@ -3368,13 +3370,43 @@ function renderBase(){
     if(tout.length) consignes=`<div class="cote-meta" style="margin-top:8px">Consignes du dernier débriefing :</div>
       <ul style="margin:4px 0 0 16px;font-size:12.5px">${tout.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`;
   }
-  $("#baseSeance").innerHTML=`<h2>Ordre du jour</h2>`+(
-    enRepos?`<p class="hand">Journée de repos consignée. C'est une décision d'entraînement, pas une absence.</p>${noteSensible}`
-    :dejaAujourdhui?`<p class="hand">Mission du jour accomplie. Repos, reprise demain.</p>`
-    :S.enCours?`<p>Une mission est en cours.</p><button class="btn signal" onclick="document.querySelector('[data-page=seances]').click()">Reprendre</button>`
-    :suggestion?`<p>Mission recommandée :</p><p><b>${esc(suggestion.nom)}</b>${zfLabel?`<br><span class="hand" style="font-size:16px">objectif : renforcer ${zfLabel}</span>`:""}</p><div class="spacer"></div>
-      <button class="btn signal" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">Lancer · +120 pts</button>${noteSensible}${noteReprise}${consignes}`
-    :`<p class="muted">Aucune séance au programme.</p>`)+btnSortie;
+  // espacement recommandé entre deux séances complètes (48 h à 3 séances/semaine)
+  const espacement=Math.max(1,Math.floor(7/((S.settings&&S.settings.objSeances)||3)));
+  const quotaAtteint=q.seances>=o.seances;
+  const enRecup=(joursOff!==null && joursOff>0 && joursOff<espacement);
+
+  const blocLancer=(cls,txt)=>suggestion
+    ? `<button class="btn ${cls}" onclick="demarrerSeance('${suggestion.id}');document.querySelector('[data-page=seances]').click()">${txt}</button>`
+    : "";
+
+  let corps;
+  if(enRepos){
+    corps=`<p class="hand">Journée de repos consignée. C'est une décision d'entraînement, pas une absence.</p>${noteSensible}`;
+  } else if(dejaAujourdhui){
+    corps=`<p class="hand">Mission du jour accomplie.</p>
+      <p class="muted">Le muscle se répare et se renforce maintenant, pas pendant la séance. Prochaine séance conseillée dans ${espacement} jour${espacement>1?"s":""}.</p>`;
+  } else if(S.enCours){
+    corps=`<p>Une mission est en cours.</p><button class="btn signal" onclick="document.querySelector('[data-page=seances]').click()">Reprendre</button>`;
+  } else if(enRecup){
+    corps=`<p class="hand">Journée de récupération</p>
+      <p class="muted">Séance faite ${joursOff===1?"hier":"il y a "+joursOff+" jours"}. Un groupe musculaire a besoin d'environ 48 h pour se reconstruire — c'est là que la progression se fait. ${quotaAtteint?"Ton objectif de la semaine est déjà atteint.":"Prochaine séance conseillée demain."}</p>
+      ${noteSensible}
+      <div class="spacer"></div>
+      <p class="cote-meta">Envie de bouger sans forcer ? Une marche ou une sortie compte aussi.</p>
+      <div class="spacer"></div>
+      <details><summary class="muted" style="cursor:pointer;font-size:12px">Je me sens frais, lancer quand même</summary>
+        <div class="spacer"></div>
+        ${blocLancer("ghost small","Lancer malgré tout · +120 pts")}
+        <p class="cote-meta" style="margin-top:6px">Possible ponctuellement, mais pas deux jours de suite en routine.</p>
+      </details>`;
+  } else if(suggestion){
+    corps=`<p>Mission recommandée :</p><p><b>${esc(suggestion.nom)}</b>${zfLabel?`<br><span class="hand" style="font-size:16px">objectif : renforcer ${zfLabel}</span>`:""}</p>
+      <div class="spacer"></div>
+      ${blocLancer("signal","Lancer · +120 pts")}${noteSensible}${noteReprise}${consignes}`;
+  } else {
+    corps=`<p class="muted">Aucune séance au programme.</p>`;
+  }
+  $("#baseSeance").innerHTML=`<h2>Ordre du jour</h2>`+corps+btnSortie;
 
   // Poids
   const last=S.pesees[S.pesees.length-1];
