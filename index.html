@@ -1926,6 +1926,7 @@ async function lancerAnalyseIA(id){
   const an=(S.analyses||[]).find(a=>a.id===id); if(!an) return;
   if(!iaPrete()){ toast("Aucune IA configurée (onglet Dossier)"); return; }
   const box=$("#dbgIA"); if(box) box.innerHTML=`<p class="muted">Analyse en cours…</p>`;
+  if(typeof iaProgres!=="undefined") iaProgres=t=>{ if(box) box.innerHTML=`<p class="muted">${esc(t)}</p>`; };
   try{
     const histo=(S.analyses||[]).filter(a=>a.nom===an.nom&&a.id!==an.id).slice(0,4)
       .map(a=>({date:a.d,indice:a.indice,volume:a.bilan.vol,execution:`${a.bilan.setsFaits}/${a.bilan.setsPrevus}`}));
@@ -2005,10 +2006,12 @@ Structure attendue :
  "recuperation":"une phrase sur le repos avant la prochaine séance",
  "prochaine":"quelle séance viser ensuite et pourquoi"}`;
     an.ia=await appelIAJson(prompt,1600);
+    if(typeof iaProgres!=="undefined") iaProgres=null;
     save();
     if(box) box.innerHTML=renderIA(an.ia);
     renderAnalyses();
   }catch(e){
+    if(typeof iaProgres!=="undefined") iaProgres=null;
     if(box) box.innerHTML=`<p class="muted">Analyse indisponible : ${esc(e.message)}. Le bilan technique ci-dessus reste valable, et c&rsquo;est lui qui porte les consignes chiffrées.</p>
       <button class="btn ghost small" onclick="lancerAnalyseIA('${id}')">Réessayer</button>`;
   }
@@ -3218,6 +3221,12 @@ const IA_FOURNISSEURS=[
    modele:"claude-sonnet-4-6", lien:"console.anthropic.com",
    note:"Quelques centimes par analyse. Crédit initial de 5 $ minimum."},
 ];
+// modèles de repli tentés si le modèle principal est saturé ou introuvable
+const IA_SECOURS={
+  gemini:["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash"],
+  openrouter:["openrouter/free"],
+  anthropic:["claude-sonnet-4-6"],
+};
 function iaFournisseur(){
   const id=(S.settings&&S.settings.iaProvider)||"gemini";
   return IA_FOURNISSEURS.find(f=>f.id===id)||IA_FOURNISSEURS[0];
@@ -3229,45 +3238,90 @@ function iaModele(){
 function iaPrete(){ return !!((S.settings&&S.settings.apiKey||"").trim()); }
 
 /* --- appel unifié : renvoie du texte brut --- */
+const IA_ATTENTES=[1500,4000,9000];          // attente croissante entre deux essais
+const IA_REPRENDRE=[429,500,502,503,504];    // codes qui méritent un nouvel essai
+let iaProgres=null;                          // callback facultatif pour informer l'utilisateur
+const iaPause=ms=>new Promise(r=>setTimeout(r,ms));
+
+function requeteIA(f, modele, prompt, mt, key){
+  if(f.id==="gemini") return {
+    url:`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modele)}:generateContent`,
+    opts:{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:mt,temperature:0.7}})},
+    lire:d=>{ const c=d.candidates&&d.candidates[0];
+      return ((c&&c.content&&c.content.parts)||[]).map(x=>x.text||"").join(""); }
+  };
+  if(f.id==="openrouter") return {
+    url:"https://openrouter.ai/api/v1/chat/completions",
+    opts:{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+      body:JSON.stringify({model:modele,max_tokens:mt,messages:[{role:"user",content:prompt}]})},
+    lire:d=>(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||""
+  };
+  return {
+    url:"https://api.anthropic.com/v1/messages",
+    opts:{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,
+      "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:modele,max_tokens:mt,messages:[{role:"user",content:prompt}]})},
+    lire:d=>(d.content||[]).map(c=>c.text||"").join("")
+  };
+}
+
+// un modèle, avec reprises automatiques si le service est saturé
+async function essayerModele(f, modele, prompt, mt, key){
+  const q=requeteIA(f,modele,prompt,mt,key);
+  let statut=0;
+  for(let i=0;i<=IA_ATTENTES.length;i++){
+    let r=null;
+    try{ r=await fetch(q.url,q.opts); }
+    catch(e){ statut=0; }
+    if(r){
+      if(r.ok) return q.lire(await r.json());
+      statut=r.status;
+      if(!IA_REPRENDRE.includes(statut)) break;   // erreur définitive : inutile d'insister
+    }
+    if(i===IA_ATTENTES.length) break;
+    let attente=IA_ATTENTES[i];
+    const ra=r&&r.headers?parseInt(r.headers.get("retry-after")||"",10):NaN;
+    if(ra>0) attente=ra*1000;
+    attente+=Math.round(Math.random()*700);      // décalage aléatoire : évite que tout le monde réessaie en même temps
+    if(iaProgres) iaProgres(`${f.nom} saturé — nouvel essai dans ${Math.round(attente/1000)} s…`);
+    await iaPause(attente);
+  }
+  const e=new Error(msgErr(f.nom,statut));
+  e.statut=statut;
+  throw e;
+}
+
 async function appelIA(prompt, maxTokens){
   const f=iaFournisseur(), modele=iaModele();
   const key=(S.settings.apiKey||"").trim();
   const mt=maxTokens||1600;
   if(!key) throw new Error("clé absente");
-
-  if(f.id==="gemini"){
-    const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modele)}:generateContent`;
-    const r=await fetch(url,{method:"POST",
-      headers:{"Content-Type":"application/json","x-goog-api-key":key},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],
-        generationConfig:{maxOutputTokens:mt,temperature:0.7}})});
-    if(!r.ok) throw new Error(msgErr("Gemini",r.status));
-    const d=await r.json();
-    const c=d.candidates&&d.candidates[0];
-    return ((c&&c.content&&c.content.parts)||[]).map(x=>x.text||"").join("");
+  try{
+    return await essayerModele(f,modele,prompt,mt,key);
+  }catch(e){
+    // saturation persistante ou modèle inconnu : on tente un modèle de repli
+    if(e.statut===503||e.statut===404||e.statut===500){
+      const secours=(IA_SECOURS[f.id]||[]).filter(m=>m!==modele);
+      for(const m of secours){
+        if(iaProgres) iaProgres(`Bascule sur le modèle de secours ${m}…`);
+        try{
+          const t=await essayerModele(f,m,prompt,mt,key);
+          if(iaProgres) iaProgres(`Réponse obtenue avec ${m}.`);
+          return t;
+        }catch(e2){ /* on passe au suivant */ }
+      }
+    }
+    throw e;
   }
-
-  if(f.id==="openrouter"){
-    const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
-      body:JSON.stringify({model:modele,max_tokens:mt,messages:[{role:"user",content:prompt}]})});
-    if(!r.ok) throw new Error(msgErr("OpenRouter",r.status));
-    const d=await r.json();
-    return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
-  }
-
-  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":key,
-      "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:modele,max_tokens:mt,messages:[{role:"user",content:prompt}]})});
-  if(!r.ok) throw new Error(msgErr("Claude",r.status));
-  const d=await r.json();
-  return (d.content||[]).map(c=>c.text||"").join("");
 }
 function msgErr(nom,code){
+  if(!code)          return nom+" : pas de réponse (réseau ou navigateur)";
   if(code===401||code===403) return nom+" : clé refusée";
-  if(code===429) return nom+" : quota atteint, réessaie plus tard";
-  if(code===404) return nom+" : modèle introuvable";
+  if(code===429)     return nom+" : quota atteint, réessaie dans quelques minutes";
+  if(code===404)     return nom+" : modèle introuvable — vérifie son nom dans le Dossier";
+  if(code===503)     return nom+" : modèle saturé côté serveur. Rien à voir avec ta clé — réessaie dans un instant";
+  if(code>=500)      return nom+" : panne temporaire du service ("+code+")";
   return nom+" : erreur "+code;
 }
 /* --- appel attendant du JSON, tolérant aux réponses mal formées --- */
@@ -3307,7 +3361,8 @@ function renderIAConfig(){
     <input id="setModele" placeholder="${esc(f.modele)}" value="${esc(S.settings.iaModel||"")}"></label>
   <div class="row">
     <button class="btn" id="iaSave">Enregistrer</button>
-    <button class="btn signal" id="iaTest">Tester la connexion</button>
+    <button class="btn signal" id="iaTest">Tester</button>
+    ${f.id==="gemini"?`<button class="btn ghost" id="iaListe">Modèles disponibles</button>`:""}
   </div>
   <p class="muted" id="iaEtat" style="margin-top:8px">${iaPrete()?"Clé enregistrée.":"Aucune clé : le bilan technique des séances reste disponible sans IA."}</p>`;
   w.querySelectorAll("[data-ia]").forEach(b=>b.onclick=()=>{
@@ -3320,15 +3375,36 @@ function renderIAConfig(){
     S.settings.iaModel=$("#setModele").value.trim();
     save(); toast("Réglages IA enregistrés"); renderIAConfig();
   };
+  if($("#iaListe")) $("#iaListe").onclick=async ()=>{
+    const e=$("#iaEtat");
+    const key=$("#setApiKey").value.trim();
+    if(!key){ e.textContent="Renseigne d'abord ta clé."; return; }
+    e.textContent="Interrogation de Google…";
+    try{
+      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models",{headers:{"x-goog-api-key":key}});
+      if(!r.ok) throw new Error(msgErr("Gemini",r.status));
+      const d=await r.json();
+      const noms=(d.models||[])
+        .filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent"))
+        .map(m=>String(m.name||"").replace("models/",""))
+        .filter(n=>/flash|lite/i.test(n))
+        .slice(0,10);
+      e.innerHTML=noms.length
+        ? "Modèles utilisables : "+noms.map(n=>`<b>${esc(n)}</b>`).join(", ")+". Copie celui que tu veux dans le champ Modèle."
+        : "Aucun modèle listé.";
+    }catch(err){ e.textContent="Échec — "+err.message; }
+  };
   $("#iaTest").onclick=async ()=>{
     S.settings.apiKey=$("#setApiKey").value.trim();
     S.settings.iaModel=$("#setModele").value.trim();
     save();
     const e=$("#iaEtat"); e.textContent="Test en cours…";
+    iaProgres=t=>{ e.textContent=t; };
     try{
       const t=await appelIA("Réponds exactement : OK",30);
       e.textContent=t.trim()?`Connexion réussie avec ${iaFournisseur().nom} (${iaModele()}).`:"Réponse vide — vérifie le modèle.";
     }catch(err){ e.textContent="Échec — "+err.message; }
+    iaProgres=null;
   };
 }
 "use strict";

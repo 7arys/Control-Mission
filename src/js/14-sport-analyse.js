@@ -230,6 +230,7 @@ async function lancerAnalyseIA(id){
   const an=(S.analyses||[]).find(a=>a.id===id); if(!an) return;
   if(!iaPrete()){ toast("Aucune IA configurée (onglet Dossier)"); return; }
   const box=$("#dbgIA"); if(box) box.innerHTML=`<p class="muted">Analyse en cours…</p>`;
+  if(typeof iaProgres!=="undefined") iaProgres=t=>{ if(box) box.innerHTML=`<p class="muted">${esc(t)}</p>`; };
   try{
     const histo=(S.analyses||[]).filter(a=>a.nom===an.nom&&a.id!==an.id).slice(0,4)
       .map(a=>({date:a.d,indice:a.indice,volume:a.bilan.vol,execution:`${a.bilan.setsFaits}/${a.bilan.setsPrevus}`}));
@@ -309,10 +310,12 @@ Structure attendue :
  "recuperation":"une phrase sur le repos avant la prochaine séance",
  "prochaine":"quelle séance viser ensuite et pourquoi"}`;
     an.ia=await appelIAJson(prompt,1600);
+    if(typeof iaProgres!=="undefined") iaProgres=null;
     save();
     if(box) box.innerHTML=renderIA(an.ia);
     renderAnalyses();
   }catch(e){
+    if(typeof iaProgres!=="undefined") iaProgres=null;
     if(box) box.innerHTML=`<p class="muted">Analyse indisponible : ${esc(e.message)}. Le bilan technique ci-dessus reste valable, et c&rsquo;est lui qui porte les consignes chiffrées.</p>
       <button class="btn ghost small" onclick="lancerAnalyseIA('${id}')">Réessayer</button>`;
   }
