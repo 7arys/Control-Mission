@@ -388,6 +388,13 @@ dialog h2{font-size:14px}
 }
 .toast.show{opacity:1}
 .toast .hand{color:var(--accent2);font-size:10px;letter-spacing:.1em}
+
+/* ---------- Aide ---------- */
+details summary b{font-family:var(--display);font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink)}
+details summary{padding:9px 0;border-top:1px solid var(--line)}
+.card details:first-of-type summary{border-top:none}
+p.aide{font-size:13px;line-height:1.6;color:var(--dim);padding:0 0 10px 2px;overflow-wrap:anywhere}
+p.aide b{color:var(--ink);font-weight:600}
 /* ============================================================
    ADAPTATIF — ajustements mobile et bureau.
    Toujours en dernier : ces règles doivent pouvoir écraser les autres.
@@ -428,7 +435,7 @@ dialog h2{font-size:14px}
     <div class="hd-title">Contrôle <span>Mission</span></div>
     <div class="hd-streak" id="hdStreak"></div>
   </div>
-  <div class="sysline">Opérateur <b>DEXYRAT</b> ▸ systèmes nominaux ▸ <span id="sysClock"></span></div>
+  <div class="sysline">Opérateur <b id="sysNom">—</b> ▸ systèmes nominaux ▸ <span id="sysClock"></span></div>
   <svg id="ascension" viewBox="0 0 980 38" preserveAspectRatio="none" aria-label="Sondes en vol" onclick="document.querySelector('[data-page=base]').click();window.scrollTo({top:0,behavior:'smooth'})"></svg>
   <div class="hd-alt"><span id="hdCamp"></span><span id="hdAlt"></span><span id="hdNext"></span></div>
 </header>
@@ -555,6 +562,39 @@ dialog h2{font-size:14px}
 <section class="page" id="page-carnet">
   <h2>Insignes</h2>
   <div class="jalons" id="jalonsGrid"></div>
+  <h2>Comment ça marche</h2>
+  <div class="card">
+    <details><summary><b>Le principe général</b></summary>
+      <p class="aide">Tu fais une séance et tu coches tes séries. L'application en tire deux choses : des <b>consignes de progression</b> pour la fois suivante, et des <b>points de mission</b> qui alimentent un programme spatial. Rien n'avance sans séance — le jeu récompense l'effort, il ne le remplace jamais.</p></details>
+
+    <details><summary><b>Missions et séance en cours</b></summary>
+      <p class="aide">Le programme contient une ou plusieurs séances. « Partir » lance la séance : tu coches chaque série au fur et à mesure, tu ajustes la charge ou la bande si besoin. Une <b>mission libre</b> permet de composer une séance improvisée sans toucher au programme. Le mode <b>débutant</b> réduit tout à une seule séance répétée, ce qui est le meilleur choix les premiers mois.</p></details>
+
+    <details><summary><b>Le débriefing</b></summary>
+      <p class="aide">Il s'ouvre dès que tu valides une séance. Il calcule un <b>indice sur 100</b> (exécution des séries, progression du volume, records), et surtout donne un <b>ajustement par exercice</b> : augmenter, consolider, alléger. Il te demande aussi comment tu as ressenti la séance — si tu réponds « difficile », aucune augmentation ne sera proposée, même avec toutes les séries bouclées.</p></details>
+
+    <details><summary><b>Aptitude opérationnelle (rangs E → SS)</b></summary>
+      <p class="aide">Chaque zone musculaire a un rang qui reflète ta <b>meilleure séance</b> sur cette zone. Répéter la même séance maintient le rang ; le dépasser le fait monter. La zone la plus en retard est encadrée : c'est celle à privilégier.</p></details>
+
+    <details><summary><b>Points, secteurs et récupération</b></summary>
+      <p class="aide">Une mission vaut 120 points, une pesée 15, l'ordre de mission hebdomadaire 100. Les points font progresser ton <b>secteur</b>, de l'aire de lancement à l'espace profond. Après une séance, l'application recommande une journée de <b>récupération</b> : le muscle se reconstruit pendant le repos, pas pendant l'effort. Tu peux consigner un jour de repos — aucun point, mais ta série continue et les zones courbaturées sont prises en compte.</p></details>
+
+    <details><summary><b>Télémétrie</b></summary>
+      <p class="aide">Poids, masse grasse et masse musculaire, saisis à la main ou importés depuis un export CSV. La courbe affiche les pesées brutes en discret et la <b>tendance sur 7 jours</b> en couleur : c'est elle qui compte, les variations quotidiennes venant surtout de l'hydratation.</p></details>
+
+    <details><summary><b>Programme spatial</b></summary>
+      <p class="aide">Chaque mission donne un <b>jeton de lancement</b>. Un jeton envoie une sonde vers une cible ; elle voyage en temps réel et rapporte des matériaux à son retour. Ces matériaux servent à construire les pièces du programme, chapitre après chapitre, du lanceur jusqu'à la terraformation. Le <b>journal de bord</b> se remplit au fil des étapes, et tu peux y écrire tes propres entrées.</p></details>
+
+    <details><summary><b>Synchronisation et IA</b></summary>
+      <p class="aide">La synchronisation relie plusieurs appareils via un compte Supabase gratuit ; sans elle, tout reste sur l'appareil. L'IA est optionnelle et ajoute une analyse rédigée par-dessus le bilan technique — deux fournisseurs sont gratuits. Sans IA, les consignes chiffrées restent disponibles : c'est le bilan technique qui les porte.</p></details>
+
+    <details><summary><b>Où sont mes données ?</b></summary>
+      <p class="aide">Dans le navigateur de cet appareil, sous ce profil. Elles ne partent nulle part tant que la synchronisation n'est pas configurée. Pense à faire un <b>export JSON</b> de temps en temps : c'est ta seule sauvegarde vraiment indépendante.</p></details>
+  </div>
+
+  <h2>Profil</h2>
+  <div class="card" id="carteProfil"></div>
+
   <h2>Modules de l'application</h2>
   <div class="card">
     <p class="muted">Coupe ce que tu n'utilises pas. Rien n'est effacé : tes données restent et le module se réactive à tout moment.</p>
@@ -766,6 +806,14 @@ dialog h2{font-size:14px}
   </div>
 </dialog>
 
+<!-- Dialog bienvenue -->
+<dialog id="dlgBienvenue">
+  <h2>Bienvenue</h2>
+  <div id="dlgBienvenueBody"></div>
+  <div class="spacer"></div>
+  <button class="btn signal" id="bvSuivant" onclick="bienvenueSuivant()">Commencer</button>
+</dialog>
+
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -789,6 +837,21 @@ function toast(msg, hand){
 }
 
 /* ============ État & stockage ============ */
+/* ============ Profils ============
+   Chaque profil a son propre espace de stockage. Le premier garde la clé
+   historique "expedition" : les données existantes ne bougent pas. */
+function profilActif(){ return localStorage.getItem("expedition_actif")||"p1"; }
+function cleData(p){ p=p||profilActif(); return p==="p1"?"expedition":"expedition:"+p; }
+function cleSync(p){ p=p||profilActif(); return p==="p1"?"expedition_sync":"expedition_sync:"+p; }
+function listeProfils(){
+  try{
+    const l=JSON.parse(localStorage.getItem("expedition_profils")||"null");
+    if(Array.isArray(l)&&l.length) return l;
+  }catch(e){}
+  return [{id:"p1",nom:""}];
+}
+function setProfils(l){ localStorage.setItem("expedition_profils",JSON.stringify(l)); }
+
 function devId(){
   let d=localStorage.getItem("expedition_dev");
   if(!d){ d="d"+Math.random().toString(36).slice(2,10); localStorage.setItem("expedition_dev",d); }
@@ -814,12 +877,13 @@ const DEFAULTS = {
   semaine: null,               // {debut, jours:[{d, slots:{petitdej,dej,diner,collation}}]}
   jalons: {},                  // id -> dateISO
   quete: null,                 // {semaine, done:{seances,pesees,plan}, reward}
+  profil: { nom:"", niveau:"debutant", objectif:"", materiel:"", contrainte:"" },
   settings: { prot: 130, apiKey: "", skin: "orbite", iaProvider: "gemini", iaModel: "", objSeances: 3, objPesees: 2, mmUnit: "pct", modules: { vivres: true, spatial: true } },
   activite: {},                // dateKey -> true (pour la streak)
 };
 let S;
 function load(){
-  try { S = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem("expedition")||"{}")); }
+  try { S = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(cleData())||"{}")); }
   catch(e){ S = clone(DEFAULTS); }
   S.settings = Object.assign({}, DEFAULTS.settings, S.settings||{});
   if(!S.alt || !Object.keys(S.alt).length) S.alt = (S.altitude>0)?{[devId()]:S.altitude}:{};
@@ -829,10 +893,27 @@ function load(){
   migrateZones();
   if(typeof migrerBandes==="function") migrerBandes();
   migrerRecords();
+  migrerProfil();
 }
 // Le rang d'aptitude reposait autrefois sur le volume cumulé, ce qui le faisait
 // monter même sans progresser. On reconstruit la meilleure séance par zone à
 // partir des débriefings enregistrés ; à défaut, la prochaine séance fera foi.
+// Les anciennes sauvegardes n'avaient pas de profil : on y remet le contexte
+// qui était jusqu'ici codé en dur dans l'application.
+function migrerProfil(){
+  S.profil=Object.assign({nom:"",niveau:"debutant",objectif:"",materiel:"",contrainte:""},S.profil||{});
+  if(S._migProfil) return;
+  const dejaUtilisee=(S.histoSeances&&S.histoSeances.length)||S.altitude>0;
+  if(dejaUtilisee && !S.profil.nom){
+    S.profil={
+      nom:"Dexyrat", niveau:"debutant",
+      objectif:"Esthétique définie : abdos, biceps, pectoraux, fessiers",
+      materiel:"Haltères, bandes de résistance SmartWorkout, banc, roue abdominale, poignées de pompes, barre de traction",
+      contrainte:"Pied fragile : aucun exercice à impact (course, sauts, corde à sauter)"
+    };
+  }
+  S._migProfil=true;
+}
 function migrerRecords(){
   if(S._migRec) return;
   const best={};
@@ -853,7 +934,7 @@ function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0);
 let BOOT=true;
 function save(){
   if(!BOOT) S.stamp=Date.now();
-  localStorage.setItem("expedition", JSON.stringify(S));
+  localStorage.setItem(cleData(), JSON.stringify(S));
   if(typeof syncPlanifier==="function") syncPlanifier();
 }
 
@@ -2007,14 +2088,7 @@ async function lancerAnalyseIA(id){
     const joursDepuis=derniere?Math.round((new Date(todayKey())-new Date(derniere.d))/864e5):null;
 
     const payload={
-      profil:{
-        niveau:"grand débutant — premières semaines d'entraînement, aucune base de force",
-        anciennete_missions:(typeof nbMissions==="function")?nbMissions():0,
-        objectif:"esthétique définie (abdos, biceps, pectoraux, fessiers), pas de volume maximal",
-        frequence_visee:`${(S.settings&&S.settings.objSeances)||3} séances par semaine, 30 à 40 min, souvent au réveil`,
-        materiel:["haltères","bandes de résistance SmartWorkout","banc","roue abdominale","poignées de pompes","barre de traction"],
-        contrainte:"pied fragile : aucun exercice à impact (ni course, ni corde à sauter, ni sauts)"
-      },
+      profil:(typeof profilPourIA==="function")?profilPourIA():{niveau:"débutant"},
       charges_utilisees:an.bilan.exos.map(e=>({
         exercice:e.nom, series:`${e.done}/${e.prevu}`, reps:e.reps,
         type:e.mode==="bande"?"élastique":"charge libre",
@@ -2040,15 +2114,15 @@ async function lancerAnalyseIA(id){
 DONNÉES : ${JSON.stringify(payload)}
 
 Contraintes de réponse :
-- Il s'agit d'un GRAND DÉBUTANT. Priorité absolue : régularité, technique et plaisir, avant la charge. Ne propose jamais d'ajouter des exercices ou des séries à ce stade.
+- Adapte-toi au niveau indiqué dans "profil". Si c'est un grand débutant : priorité absolue à la régularité, la technique et le plaisir, avant la charge, et n'ajoute jamais d'exercices ni de séries.
+- Respecte strictement la contrainte ou blessure indiquée dans "profil" : ne propose aucun mouvement qui la solliciterait.
+- N'utilise que le matériel listé dans "profil".
 - Progression très graduelle : au maximum +1 kg sur les petits mouvements (curl, élévations), +2 kg sur les gros, et seulement si toutes les séries ont été bouclées sans difficulté.
 - Pour les exercices à l'élastique, la progression se fait en passant à la bande immédiatement supérieure de la liste "bandes_disponibles", ou en ajoutant des répétitions, jamais en kilos. Nomme la bande précise à utiliser.
 - Prends en compte les charges réellement utilisées (champ "charges_utilisees") et commente-les concrètement.
 - Prends en compte les journées de repos et les courbatures signalées (champ "recuperation") : si des zones étaient douloureuses récemment, recommande explicitement la prudence sur ces zones. Ne culpabilise JAMAIS le repos : c'est une bonne décision d'entraînement.
 - Si la reprise suit plusieurs jours d'arrêt, conseille de reprendre à 60-70 % des charges.
 - Commente l'échauffement s'il n'a pas été fait.
-- Ne propose JAMAIS d'exercice à impact (course, sauts, corde à sauter).
-- Utilise uniquement le matériel listé.
 - Aucun conseil médical ni nutritionnel chiffré.
 - Sois concret et chiffré, mais bienveillant : 3 ajustements maximum.
 - Ne propose une augmentation que si l'exercice a été bouclé intégralement ET que le ressenti n'est pas 'dur'. Sinon, recommande de refaire la même chose pour consolider.
@@ -2523,7 +2597,7 @@ function genSemaineLocale(){
 }
 async function genSemaineIA(key){
   const base=S.recettes.map(x=>({id:x.id,nom:x.nom,type:x.type,kcal:x.kcal,prot:x.prot}));
-  const prompt=`Tu es un nutritionniste sportif. Compose un plan de repas de 7 jours (lundi à dimanche) pour un homme en prise de muscle légère : surplus calorique modéré (~2700-2900 kcal/j), objectif ${S.settings.prot} g de protéines/jour, cuisine française simple et économique.
+  const prompt=`Tu es un nutritionniste sportif. Compose un plan de repas de 7 jours (lundi à dimanche) adapté à ce profil : ${JSON.stringify((typeof profilPourIA==="function")?profilPourIA():{})}. Objectif ${S.settings.prot} g de protéines/jour, cuisine française simple et économique.
 Base de recettes disponible (à privilégier, réutilise leurs "id") : ${JSON.stringify(base)}
 Créneaux par jour : petitdej, dej, collation, diner.
 Tu peux proposer au maximum 4 nouvelles recettes si la base manque de variété. Chaque nouvelle recette doit avoir : nom, type, kcal, prot, ing (liste de {q, u, n} avec q=quantité numérique, u=unité (g/ml ou vide), n=nom d'ingrédient).
@@ -3473,8 +3547,8 @@ function renderIAConfig(){
 /* ============ Synchronisation Supabase ============ */
 const SYNC={busy:false,timer:null,dernier:null};
 
-function syncCfg(){ try{ return JSON.parse(localStorage.getItem("expedition_sync")||"{}"); }catch(e){ return {}; } }
-function setSyncCfg(c){ localStorage.setItem("expedition_sync",JSON.stringify(c)); }
+function syncCfg(){ try{ return JSON.parse(localStorage.getItem(cleSync())||"{}"); }catch(e){ return {}; } }
+function setSyncCfg(c){ localStorage.setItem(cleSync(),JSON.stringify(c)); }
 function syncActif(){ const c=syncCfg(); return !!(c.url&&c.key&&c.espace); }
 function syncHeaders(c,extra){
   return Object.assign({apikey:c.key,Authorization:"Bearer "+c.key},extra||{});
@@ -3662,6 +3736,7 @@ function fusion(L,R){
     };
   }
 
+  out.profil=L.profil||R.profil;
   out.enCours=L.enCours;                       // la séance en cours reste locale
   out.stamp=Math.max(L.stamp||0,R.stamp||0);
   return out;
@@ -3679,7 +3754,7 @@ async function syncMaintenant(silencieux){
   if(SYNC.busy) return;
   SYNC.busy=true; syncEtat("Synchronisation en cours…");
   // filet de sécurité local avant toute fusion
-  try{ localStorage.setItem("expedition_backup",JSON.stringify(S)); }catch(e){}
+  try{ localStorage.setItem("expedition_backup:"+profilActif(),JSON.stringify(S)); }catch(e){}
   try{
     const distant=await syncPull();
     let annulees=0;
@@ -3687,7 +3762,7 @@ async function syncMaintenant(silencieux){
       S=fusion(S,distant);
       S.altitude=totalAlt();
       if(S.jeu&&S.jeu._annulees){ annulees=S.jeu._annulees; delete S.jeu._annulees; }
-      localStorage.setItem("expedition",JSON.stringify(S));
+      localStorage.setItem(cleData(),JSON.stringify(S));
     }
     await syncPush(pourEnvoi(S));
     SYNC.dernier=new Date();
@@ -3759,6 +3834,188 @@ function initSyncUI(){
     if(document.visibilityState==="visible") syncMaintenant(true);
   });
   window.addEventListener("online",()=>syncMaintenant(true));
+}
+"use strict";
+/* ============================================================
+   PROFILS — plusieurs personnes sur le même appareil, fiche
+   personnelle utilisée par l'application et par l'IA
+   ============================================================ */
+
+const NIVEAUX=[
+  {id:"debutant",     nom:"Débutant",     ds:"je commence ou je reprends après une longue pause"},
+  {id:"intermediaire",nom:"Intermédiaire",ds:"je m'entraîne régulièrement depuis plusieurs mois"},
+  {id:"confirme",     nom:"Confirmé",     ds:"plusieurs années de pratique"},
+];
+function nomNiveau(id){ const n=NIVEAUX.find(x=>x.id===id); return n?n.nom:"Débutant"; }
+function nomProfil(){ return (S.profil&&S.profil.nom)||"—"; }
+
+/* --- description envoyée à l'IA : plus rien n'est codé en dur --- */
+function profilPourIA(){
+  const p=S.profil||{};
+  const n=NIVEAUX.find(x=>x.id===p.niveau)||NIVEAUX[0];
+  return {
+    niveau: p.niveau==="debutant"
+      ? "grand débutant — premières semaines d'entraînement, aucune base de force"
+      : n.nom+" — "+n.ds,
+    anciennete_missions:(typeof nbMissions==="function")?nbMissions():0,
+    objectif: p.objectif || "non précisé",
+    frequence_visee: `${(S.settings&&S.settings.objSeances)||3} séances par semaine`,
+    materiel: p.materiel || "non précisé",
+    contrainte: p.contrainte || "aucune contrainte signalée",
+  };
+}
+
+/* ============ Changement de profil ============ */
+function basculerProfil(id){
+  if(id===profilActif()) return;
+  localStorage.setItem("expedition_actif",id);
+  location.reload();
+}
+function creerProfil(nom){
+  const l=listeProfils();
+  const id="p"+Math.random().toString(36).slice(2,8);
+  l.push({id,nom:nom||"Nouveau profil"});
+  setProfils(l);
+  localStorage.setItem("expedition_actif",id);
+  location.reload();
+}
+function supprimerProfil(id){
+  const l=listeProfils();
+  if(l.length<2){ toast("Il faut au moins un profil"); return; }
+  const p=l.find(x=>x.id===id); if(!p) return;
+  if(!confirm(`Supprimer le profil « ${p.nom||id} » et toutes ses données ?\n\nCette action est définitive.`)) return;
+  localStorage.removeItem(cleData(id));
+  localStorage.removeItem(cleSync(id));
+  localStorage.removeItem("expedition_backup:"+id);
+  const reste=l.filter(x=>x.id!==id);
+  setProfils(reste);
+  if(profilActif()===id) localStorage.setItem("expedition_actif",reste[0].id);
+  location.reload();
+}
+function majNomProfil(nom){
+  const l=listeProfils(), id=profilActif();
+  const p=l.find(x=>x.id===id);
+  if(p){ p.nom=nom; setProfils(l); }
+}
+
+/* ============ Fiche et sélecteur (onglet Dossier) ============ */
+function renderProfil(){
+  const w=$("#carteProfil"); if(!w) return;
+  const p=S.profil||{};
+  const l=listeProfils(), actif=profilActif();
+  w.innerHTML=`
+  <label class="fld">Nom ou pseudo<input id="pfNom" value="${esc(p.nom||"")}" placeholder="ton prénom"></label>
+  <label class="fld" style="margin-bottom:6px">Niveau</label>
+  <div class="pickrow col">${NIVEAUX.map(n=>
+    `<button class="pick wide ${p.niveau===n.id?"on":""}" data-niv="${n.id}"><b>${n.nom}</b><span>${n.ds}</span></button>`).join("")}</div>
+  <div class="spacer"></div>
+  <label class="fld">Objectif<input id="pfObj" value="${esc(p.objectif||"")}" placeholder="ex : prendre du muscle, perdre du gras, être plus endurant"></label>
+  <label class="fld">Matériel disponible<input id="pfMat" value="${esc(p.materiel||"")}" placeholder="ex : haltères, élastiques, banc, barre de traction"></label>
+  <label class="fld">Contrainte ou blessure <span class="muted">(important)</span>
+    <input id="pfCon" value="${esc(p.contrainte||"")}" placeholder="ex : genou fragile, pas de sauts"></label>
+  <div class="row"><button class="btn" id="pfSave">Enregistrer</button></div>
+  <p class="cote-meta" style="margin-top:8px">Ces informations restent sur ton appareil. Elles servent à personnaliser les conseils et sont transmises à l'IA si tu l'actives.</p>
+
+  <h3 class="dbg-h" style="margin-top:18px">Profils sur cet appareil</h3>
+  <p class="muted">Chaque profil a ses propres séances, sa télémétrie et sa synchronisation. Pratique pour faire essayer l'application à quelqu'un sans mélanger vos données.</p>
+  <div class="spacer"></div>
+  ${l.map(x=>`<div class="mod-tog">
+      <div><b>${esc(x.nom||"Sans nom")}${x.id===actif?" · actif":""}</b><span>${x.id===actif?"profil en cours":"basculer pour l'utiliser"}</span></div>
+      <div style="display:flex;gap:6px">
+        ${x.id===actif?"":`<button class="btn small" data-bascule="${x.id}">Ouvrir</button>`}
+        ${l.length>1?`<button class="btn small danger" data-suppr="${x.id}">✕</button>`:""}
+      </div></div>`).join("")}
+  <div class="spacer"></div>
+  <button class="btn ghost small" id="pfNew">+ Nouveau profil</button>`;
+
+  w.querySelectorAll("[data-niv]").forEach(b=>b.onclick=()=>{
+    S.profil.niveau=b.dataset.niv; save(); renderProfil();
+  });
+  $("#pfSave").onclick=()=>{
+    S.profil.nom=$("#pfNom").value.trim();
+    S.profil.objectif=$("#pfObj").value.trim();
+    S.profil.materiel=$("#pfMat").value.trim();
+    S.profil.contrainte=$("#pfCon").value.trim();
+    majNomProfil(S.profil.nom);
+    save(); majEnteteProfil(); renderProfil();
+    toast("Profil enregistré");
+  };
+  w.querySelectorAll("[data-bascule]").forEach(b=>b.onclick=()=>basculerProfil(b.dataset.bascule));
+  w.querySelectorAll("[data-suppr]").forEach(b=>b.onclick=()=>supprimerProfil(b.dataset.suppr));
+  $("#pfNew").onclick=()=>{
+    const n=prompt("Nom du nouveau profil ?");
+    if(n!==null) creerProfil(n.trim());
+  };
+}
+function majEnteteProfil(){
+  const e=$("#sysNom");
+  if(e) e.textContent=(S.profil&&S.profil.nom)?S.profil.nom.toUpperCase():"INVITÉ";
+}
+
+/* ============ Accueil au premier lancement ============ */
+let bienvenueEtape=0;
+function besoinBienvenue(){
+  return !(S.profil&&S.profil.nom) && !(S.histoSeances&&S.histoSeances.length);
+}
+function ouvrirBienvenue(){
+  bienvenueEtape=0;
+  renderBienvenue();
+  $("#dlgBienvenue").showModal();
+}
+function renderBienvenue(){
+  const w=$("#dlgBienvenueBody");
+  const p=S.profil||{};
+  if(bienvenueEtape===0){
+    w.innerHTML=`
+      <p>Cette application sert à <b>t'entraîner régulièrement</b> et à voir ta progression, sans t'obliger à tenir un carnet.</p>
+      <div class="dbg-list"><b>Le principe</b><ul>
+        <li>Tu fais une séance, tu coches tes séries.</li>
+        <li>Un <b>débriefing</b> te dit quoi ajuster la fois suivante : monter d'un kilo, consolider, ou alléger.</li>
+        <li>Chaque séance rapporte des <b>points de mission</b> qui alimentent un programme spatial : sondes, chantier, chapitres.</li>
+        <li>Rien ne progresse sans séance. Le jeu récompense l'effort, il ne le remplace pas.</li>
+      </ul></div>
+      <p class="muted">Trois questions rapides et on démarre.</p>`;
+    $("#bvSuivant").textContent="Commencer";
+  } else if(bienvenueEtape===1){
+    w.innerHTML=`
+      <label class="fld">Comment veux-tu qu'on t'appelle ?<input id="bvNom" value="${esc(p.nom||"")}" placeholder="prénom ou pseudo"></label>
+      <label class="fld" style="margin:14px 0 6px">Ton niveau</label>
+      <div class="pickrow col">${NIVEAUX.map(n=>
+        `<button class="pick wide ${p.niveau===n.id?"on":""}" data-bvniv="${n.id}"><b>${n.nom}</b><span>${n.ds}</span></button>`).join("")}</div>`;
+    w.querySelectorAll("[data-bvniv]").forEach(b=>b.onclick=()=>{
+      S.profil.nom=$("#bvNom").value.trim();
+      S.profil.niveau=b.dataset.bvniv;
+      renderBienvenue();
+    });
+    $("#bvSuivant").textContent="Suivant";
+  } else {
+    w.innerHTML=`
+      <label class="fld">Ton objectif<input id="bvObj" value="${esc(p.objectif||"")}" placeholder="ex : prendre du muscle, me remettre en forme"></label>
+      <label class="fld">Matériel dont tu disposes<input id="bvMat" value="${esc(p.materiel||"")}" placeholder="ex : haltères, élastiques, banc — ou rien du tout"></label>
+      <label class="fld">Une blessure ou une contrainte ? <span class="muted">(facultatif mais utile)</span>
+        <input id="bvCon" value="${esc(p.contrainte||"")}" placeholder="ex : genou fragile, pas de sauts"></label>
+      <p class="cote-meta">Tout est modifiable plus tard dans l'onglet Dossier.</p>`;
+    $("#bvSuivant").textContent="C'est parti";
+  }
+}
+function bienvenueSuivant(){
+  if(bienvenueEtape===1){
+    const n=$("#bvNom"); if(n) S.profil.nom=n.value.trim();
+  }
+  if(bienvenueEtape===2){
+    const o=$("#bvObj"), m=$("#bvMat"), c=$("#bvCon");
+    if(o) S.profil.objectif=o.value.trim();
+    if(m) S.profil.materiel=m.value.trim();
+    if(c) S.profil.contrainte=c.value.trim();
+    if(!S.profil.nom) S.profil.nom="Opérateur";
+    majNomProfil(S.profil.nom);
+    save(); majEnteteProfil(); renderProfil(); renderBase();
+    $("#dlgBienvenue").close();
+    toast("Bienvenue "+S.profil.nom+" — commence par une mission","Profil créé");
+    return;
+  }
+  bienvenueEtape++;
+  renderBienvenue();
 }
 "use strict";
 /* ============================================================
@@ -3898,6 +4155,8 @@ function renderCarnet(){
   renderSkinPicker();
   if(typeof renderModules==="function") renderModules();
   if(typeof renderIAConfig==="function") renderIAConfig();
+  if(typeof renderProfil==="function") renderProfil();
+  if(typeof majEnteteProfil==="function") majEnteteProfil();
   $("#setProt").value=S.settings.prot;
   if($("#setObjS")) $("#setObjS").value=S.settings.objSeances||3;
   if($("#setObjP")) $("#setObjP").value=S.settings.objPesees||2;
@@ -3931,7 +4190,8 @@ $("#inImport").addEventListener("change",async e=>{
 });
 $("#btnReset").onclick=()=>{
   if(confirm("Tout effacer et repartir de l'aire de lancement ? (pense à exporter avant)")&&confirm("Vraiment sûr ? C'est définitif.")){
-    localStorage.removeItem("expedition"); load(); boot();
+    localStorage.removeItem(cleData()); load(); boot();
+if(typeof besoinBienvenue==="function" && besoinBienvenue()) setTimeout(ouvrirBienvenue,400);
 BOOT=false;   // à partir d'ici, toute écriture horodate vraiment la configuration
   }
 };
@@ -3991,6 +4251,7 @@ function tickClock(){
 setInterval(tickClock,1000); tickClock();
 setInterval(()=>{ if(typeof jeu==="function"&&jeu().sondes.length){ renderHeader(); renderSpatial(); } },30000);
 load(); boot();
+if(typeof besoinBienvenue==="function" && besoinBienvenue()) setTimeout(ouvrirBienvenue,400);
 BOOT=false;   // à partir d'ici, toute écriture horodate vraiment la configuration
 </script>
 </body></html>

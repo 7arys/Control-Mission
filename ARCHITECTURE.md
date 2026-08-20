@@ -115,6 +115,8 @@ et `60-sync.js`.
 | Entrées du journal de bord | `js/42-jeu-lore.js` → `LORE_AUTO` |
 | Consignes envoyées à l'IA | `js/14-sport-analyse.js` → `lancerAnalyseIA()` |
 | Règles de fusion entre appareils | `js/60-sync.js` → `fusion()` |
+| Questions de l'accueil, niveaux | `js/70-profils.js` → `NIVEAUX`, `renderBienvenue()` |
+| Textes de la section « Comment ça marche » | `src/html/body.html` |
 
 ---
 

@@ -117,7 +117,7 @@ function genSemaineLocale(){
 }
 async function genSemaineIA(key){
   const base=S.recettes.map(x=>({id:x.id,nom:x.nom,type:x.type,kcal:x.kcal,prot:x.prot}));
-  const prompt=`Tu es un nutritionniste sportif. Compose un plan de repas de 7 jours (lundi à dimanche) pour un homme en prise de muscle légère : surplus calorique modéré (~2700-2900 kcal/j), objectif ${S.settings.prot} g de protéines/jour, cuisine française simple et économique.
+  const prompt=`Tu es un nutritionniste sportif. Compose un plan de repas de 7 jours (lundi à dimanche) adapté à ce profil : ${JSON.stringify((typeof profilPourIA==="function")?profilPourIA():{})}. Objectif ${S.settings.prot} g de protéines/jour, cuisine française simple et économique.
 Base de recettes disponible (à privilégier, réutilise leurs "id") : ${JSON.stringify(base)}
 Créneaux par jour : petitdej, dej, collation, diner.
 Tu peux proposer au maximum 4 nouvelles recettes si la base manque de variété. Chaque nouvelle recette doit avoir : nom, type, kcal, prot, ing (liste de {q, u, n} avec q=quantité numérique, u=unité (g/ml ou vide), n=nom d'ingrédient).

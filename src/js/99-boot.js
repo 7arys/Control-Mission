@@ -136,6 +136,8 @@ function renderCarnet(){
   renderSkinPicker();
   if(typeof renderModules==="function") renderModules();
   if(typeof renderIAConfig==="function") renderIAConfig();
+  if(typeof renderProfil==="function") renderProfil();
+  if(typeof majEnteteProfil==="function") majEnteteProfil();
   $("#setProt").value=S.settings.prot;
   if($("#setObjS")) $("#setObjS").value=S.settings.objSeances||3;
   if($("#setObjP")) $("#setObjP").value=S.settings.objPesees||2;
@@ -169,7 +171,8 @@ $("#inImport").addEventListener("change",async e=>{
 });
 $("#btnReset").onclick=()=>{
   if(confirm("Tout effacer et repartir de l'aire de lancement ? (pense à exporter avant)")&&confirm("Vraiment sûr ? C'est définitif.")){
-    localStorage.removeItem("expedition"); load(); boot();
+    localStorage.removeItem(cleData()); load(); boot();
+if(typeof besoinBienvenue==="function" && besoinBienvenue()) setTimeout(ouvrirBienvenue,400);
 BOOT=false;   // à partir d'ici, toute écriture horodate vraiment la configuration
   }
 };
@@ -229,4 +232,5 @@ function tickClock(){
 setInterval(tickClock,1000); tickClock();
 setInterval(()=>{ if(typeof jeu==="function"&&jeu().sondes.length){ renderHeader(); renderSpatial(); } },30000);
 load(); boot();
+if(typeof besoinBienvenue==="function" && besoinBienvenue()) setTimeout(ouvrirBienvenue,400);
 BOOT=false;   // à partir d'ici, toute écriture horodate vraiment la configuration

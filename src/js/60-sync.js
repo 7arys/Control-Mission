@@ -5,8 +5,8 @@
 /* ============ Synchronisation Supabase ============ */
 const SYNC={busy:false,timer:null,dernier:null};
 
-function syncCfg(){ try{ return JSON.parse(localStorage.getItem("expedition_sync")||"{}"); }catch(e){ return {}; } }
-function setSyncCfg(c){ localStorage.setItem("expedition_sync",JSON.stringify(c)); }
+function syncCfg(){ try{ return JSON.parse(localStorage.getItem(cleSync())||"{}"); }catch(e){ return {}; } }
+function setSyncCfg(c){ localStorage.setItem(cleSync(),JSON.stringify(c)); }
 function syncActif(){ const c=syncCfg(); return !!(c.url&&c.key&&c.espace); }
 function syncHeaders(c,extra){
   return Object.assign({apikey:c.key,Authorization:"Bearer "+c.key},extra||{});
@@ -194,6 +194,7 @@ function fusion(L,R){
     };
   }
 
+  out.profil=L.profil||R.profil;
   out.enCours=L.enCours;                       // la séance en cours reste locale
   out.stamp=Math.max(L.stamp||0,R.stamp||0);
   return out;
@@ -211,7 +212,7 @@ async function syncMaintenant(silencieux){
   if(SYNC.busy) return;
   SYNC.busy=true; syncEtat("Synchronisation en cours…");
   // filet de sécurité local avant toute fusion
-  try{ localStorage.setItem("expedition_backup",JSON.stringify(S)); }catch(e){}
+  try{ localStorage.setItem("expedition_backup:"+profilActif(),JSON.stringify(S)); }catch(e){}
   try{
     const distant=await syncPull();
     let annulees=0;
@@ -219,7 +220,7 @@ async function syncMaintenant(silencieux){
       S=fusion(S,distant);
       S.altitude=totalAlt();
       if(S.jeu&&S.jeu._annulees){ annulees=S.jeu._annulees; delete S.jeu._annulees; }
-      localStorage.setItem("expedition",JSON.stringify(S));
+      localStorage.setItem(cleData(),JSON.stringify(S));
     }
     await syncPush(pourEnvoi(S));
     SYNC.dernier=new Date();

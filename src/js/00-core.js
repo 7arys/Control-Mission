@@ -19,6 +19,21 @@ function toast(msg, hand){
 }
 
 /* ============ État & stockage ============ */
+/* ============ Profils ============
+   Chaque profil a son propre espace de stockage. Le premier garde la clé
+   historique "expedition" : les données existantes ne bougent pas. */
+function profilActif(){ return localStorage.getItem("expedition_actif")||"p1"; }
+function cleData(p){ p=p||profilActif(); return p==="p1"?"expedition":"expedition:"+p; }
+function cleSync(p){ p=p||profilActif(); return p==="p1"?"expedition_sync":"expedition_sync:"+p; }
+function listeProfils(){
+  try{
+    const l=JSON.parse(localStorage.getItem("expedition_profils")||"null");
+    if(Array.isArray(l)&&l.length) return l;
+  }catch(e){}
+  return [{id:"p1",nom:""}];
+}
+function setProfils(l){ localStorage.setItem("expedition_profils",JSON.stringify(l)); }
+
 function devId(){
   let d=localStorage.getItem("expedition_dev");
   if(!d){ d="d"+Math.random().toString(36).slice(2,10); localStorage.setItem("expedition_dev",d); }
@@ -44,12 +59,13 @@ const DEFAULTS = {
   semaine: null,               // {debut, jours:[{d, slots:{petitdej,dej,diner,collation}}]}
   jalons: {},                  // id -> dateISO
   quete: null,                 // {semaine, done:{seances,pesees,plan}, reward}
+  profil: { nom:"", niveau:"debutant", objectif:"", materiel:"", contrainte:"" },
   settings: { prot: 130, apiKey: "", skin: "orbite", iaProvider: "gemini", iaModel: "", objSeances: 3, objPesees: 2, mmUnit: "pct", modules: { vivres: true, spatial: true } },
   activite: {},                // dateKey -> true (pour la streak)
 };
 let S;
 function load(){
-  try { S = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem("expedition")||"{}")); }
+  try { S = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(cleData())||"{}")); }
   catch(e){ S = clone(DEFAULTS); }
   S.settings = Object.assign({}, DEFAULTS.settings, S.settings||{});
   if(!S.alt || !Object.keys(S.alt).length) S.alt = (S.altitude>0)?{[devId()]:S.altitude}:{};
@@ -59,10 +75,27 @@ function load(){
   migrateZones();
   if(typeof migrerBandes==="function") migrerBandes();
   migrerRecords();
+  migrerProfil();
 }
 // Le rang d'aptitude reposait autrefois sur le volume cumulé, ce qui le faisait
 // monter même sans progresser. On reconstruit la meilleure séance par zone à
 // partir des débriefings enregistrés ; à défaut, la prochaine séance fera foi.
+// Les anciennes sauvegardes n'avaient pas de profil : on y remet le contexte
+// qui était jusqu'ici codé en dur dans l'application.
+function migrerProfil(){
+  S.profil=Object.assign({nom:"",niveau:"debutant",objectif:"",materiel:"",contrainte:""},S.profil||{});
+  if(S._migProfil) return;
+  const dejaUtilisee=(S.histoSeances&&S.histoSeances.length)||S.altitude>0;
+  if(dejaUtilisee && !S.profil.nom){
+    S.profil={
+      nom:"Dexyrat", niveau:"debutant",
+      objectif:"Esthétique définie : abdos, biceps, pectoraux, fessiers",
+      materiel:"Haltères, bandes de résistance SmartWorkout, banc, roue abdominale, poignées de pompes, barre de traction",
+      contrainte:"Pied fragile : aucun exercice à impact (course, sauts, corde à sauter)"
+    };
+  }
+  S._migProfil=true;
+}
 function migrerRecords(){
   if(S._migRec) return;
   const best={};
@@ -83,7 +116,7 @@ function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0);
 let BOOT=true;
 function save(){
   if(!BOOT) S.stamp=Date.now();
-  localStorage.setItem("expedition", JSON.stringify(S));
+  localStorage.setItem(cleData(), JSON.stringify(S));
   if(typeof syncPlanifier==="function") syncPlanifier();
 }
 

@@ -253,14 +253,7 @@ async function lancerAnalyseIA(id){
     const joursDepuis=derniere?Math.round((new Date(todayKey())-new Date(derniere.d))/864e5):null;
 
     const payload={
-      profil:{
-        niveau:"grand débutant — premières semaines d'entraînement, aucune base de force",
-        anciennete_missions:(typeof nbMissions==="function")?nbMissions():0,
-        objectif:"esthétique définie (abdos, biceps, pectoraux, fessiers), pas de volume maximal",
-        frequence_visee:`${(S.settings&&S.settings.objSeances)||3} séances par semaine, 30 à 40 min, souvent au réveil`,
-        materiel:["haltères","bandes de résistance SmartWorkout","banc","roue abdominale","poignées de pompes","barre de traction"],
-        contrainte:"pied fragile : aucun exercice à impact (ni course, ni corde à sauter, ni sauts)"
-      },
+      profil:(typeof profilPourIA==="function")?profilPourIA():{niveau:"débutant"},
       charges_utilisees:an.bilan.exos.map(e=>({
         exercice:e.nom, series:`${e.done}/${e.prevu}`, reps:e.reps,
         type:e.mode==="bande"?"élastique":"charge libre",
@@ -286,15 +279,15 @@ async function lancerAnalyseIA(id){
 DONNÉES : ${JSON.stringify(payload)}
 
 Contraintes de réponse :
-- Il s'agit d'un GRAND DÉBUTANT. Priorité absolue : régularité, technique et plaisir, avant la charge. Ne propose jamais d'ajouter des exercices ou des séries à ce stade.
+- Adapte-toi au niveau indiqué dans "profil". Si c'est un grand débutant : priorité absolue à la régularité, la technique et le plaisir, avant la charge, et n'ajoute jamais d'exercices ni de séries.
+- Respecte strictement la contrainte ou blessure indiquée dans "profil" : ne propose aucun mouvement qui la solliciterait.
+- N'utilise que le matériel listé dans "profil".
 - Progression très graduelle : au maximum +1 kg sur les petits mouvements (curl, élévations), +2 kg sur les gros, et seulement si toutes les séries ont été bouclées sans difficulté.
 - Pour les exercices à l'élastique, la progression se fait en passant à la bande immédiatement supérieure de la liste "bandes_disponibles", ou en ajoutant des répétitions, jamais en kilos. Nomme la bande précise à utiliser.
 - Prends en compte les charges réellement utilisées (champ "charges_utilisees") et commente-les concrètement.
 - Prends en compte les journées de repos et les courbatures signalées (champ "recuperation") : si des zones étaient douloureuses récemment, recommande explicitement la prudence sur ces zones. Ne culpabilise JAMAIS le repos : c'est une bonne décision d'entraînement.
 - Si la reprise suit plusieurs jours d'arrêt, conseille de reprendre à 60-70 % des charges.
 - Commente l'échauffement s'il n'a pas été fait.
-- Ne propose JAMAIS d'exercice à impact (course, sauts, corde à sauter).
-- Utilise uniquement le matériel listé.
 - Aucun conseil médical ni nutritionnel chiffré.
 - Sois concret et chiffré, mais bienveillant : 3 ajustements maximum.
 - Ne propose une augmentation que si l'exercice a été bouclé intégralement ET que le ressenti n'est pas 'dur'. Sinon, recommande de refaire la même chose pour consolider.

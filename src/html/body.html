@@ -4,7 +4,7 @@
     <div class="hd-title">Contrôle <span>Mission</span></div>
     <div class="hd-streak" id="hdStreak"></div>
   </div>
-  <div class="sysline">Opérateur <b>DEXYRAT</b> ▸ systèmes nominaux ▸ <span id="sysClock"></span></div>
+  <div class="sysline">Opérateur <b id="sysNom">—</b> ▸ systèmes nominaux ▸ <span id="sysClock"></span></div>
   <svg id="ascension" viewBox="0 0 980 38" preserveAspectRatio="none" aria-label="Sondes en vol" onclick="document.querySelector('[data-page=base]').click();window.scrollTo({top:0,behavior:'smooth'})"></svg>
   <div class="hd-alt"><span id="hdCamp"></span><span id="hdAlt"></span><span id="hdNext"></span></div>
 </header>
@@ -131,6 +131,39 @@
 <section class="page" id="page-carnet">
   <h2>Insignes</h2>
   <div class="jalons" id="jalonsGrid"></div>
+  <h2>Comment ça marche</h2>
+  <div class="card">
+    <details><summary><b>Le principe général</b></summary>
+      <p class="aide">Tu fais une séance et tu coches tes séries. L'application en tire deux choses : des <b>consignes de progression</b> pour la fois suivante, et des <b>points de mission</b> qui alimentent un programme spatial. Rien n'avance sans séance — le jeu récompense l'effort, il ne le remplace jamais.</p></details>
+
+    <details><summary><b>Missions et séance en cours</b></summary>
+      <p class="aide">Le programme contient une ou plusieurs séances. « Partir » lance la séance : tu coches chaque série au fur et à mesure, tu ajustes la charge ou la bande si besoin. Une <b>mission libre</b> permet de composer une séance improvisée sans toucher au programme. Le mode <b>débutant</b> réduit tout à une seule séance répétée, ce qui est le meilleur choix les premiers mois.</p></details>
+
+    <details><summary><b>Le débriefing</b></summary>
+      <p class="aide">Il s'ouvre dès que tu valides une séance. Il calcule un <b>indice sur 100</b> (exécution des séries, progression du volume, records), et surtout donne un <b>ajustement par exercice</b> : augmenter, consolider, alléger. Il te demande aussi comment tu as ressenti la séance — si tu réponds « difficile », aucune augmentation ne sera proposée, même avec toutes les séries bouclées.</p></details>
+
+    <details><summary><b>Aptitude opérationnelle (rangs E → SS)</b></summary>
+      <p class="aide">Chaque zone musculaire a un rang qui reflète ta <b>meilleure séance</b> sur cette zone. Répéter la même séance maintient le rang ; le dépasser le fait monter. La zone la plus en retard est encadrée : c'est celle à privilégier.</p></details>
+
+    <details><summary><b>Points, secteurs et récupération</b></summary>
+      <p class="aide">Une mission vaut 120 points, une pesée 15, l'ordre de mission hebdomadaire 100. Les points font progresser ton <b>secteur</b>, de l'aire de lancement à l'espace profond. Après une séance, l'application recommande une journée de <b>récupération</b> : le muscle se reconstruit pendant le repos, pas pendant l'effort. Tu peux consigner un jour de repos — aucun point, mais ta série continue et les zones courbaturées sont prises en compte.</p></details>
+
+    <details><summary><b>Télémétrie</b></summary>
+      <p class="aide">Poids, masse grasse et masse musculaire, saisis à la main ou importés depuis un export CSV. La courbe affiche les pesées brutes en discret et la <b>tendance sur 7 jours</b> en couleur : c'est elle qui compte, les variations quotidiennes venant surtout de l'hydratation.</p></details>
+
+    <details><summary><b>Programme spatial</b></summary>
+      <p class="aide">Chaque mission donne un <b>jeton de lancement</b>. Un jeton envoie une sonde vers une cible ; elle voyage en temps réel et rapporte des matériaux à son retour. Ces matériaux servent à construire les pièces du programme, chapitre après chapitre, du lanceur jusqu'à la terraformation. Le <b>journal de bord</b> se remplit au fil des étapes, et tu peux y écrire tes propres entrées.</p></details>
+
+    <details><summary><b>Synchronisation et IA</b></summary>
+      <p class="aide">La synchronisation relie plusieurs appareils via un compte Supabase gratuit ; sans elle, tout reste sur l'appareil. L'IA est optionnelle et ajoute une analyse rédigée par-dessus le bilan technique — deux fournisseurs sont gratuits. Sans IA, les consignes chiffrées restent disponibles : c'est le bilan technique qui les porte.</p></details>
+
+    <details><summary><b>Où sont mes données ?</b></summary>
+      <p class="aide">Dans le navigateur de cet appareil, sous ce profil. Elles ne partent nulle part tant que la synchronisation n'est pas configurée. Pense à faire un <b>export JSON</b> de temps en temps : c'est ta seule sauvegarde vraiment indépendante.</p></details>
+  </div>
+
+  <h2>Profil</h2>
+  <div class="card" id="carteProfil"></div>
+
   <h2>Modules de l'application</h2>
   <div class="card">
     <p class="muted">Coupe ce que tu n'utilises pas. Rien n'est effacé : tes données restent et le module se réactive à tout moment.</p>
@@ -340,6 +373,14 @@
     <button class="btn signal" onclick="sauverEntree()">Enregistrer</button>
     <button class="btn ghost" onclick="document.getElementById('dlgEntree').close()">Annuler</button>
   </div>
+</dialog>
+
+<!-- Dialog bienvenue -->
+<dialog id="dlgBienvenue">
+  <h2>Bienvenue</h2>
+  <div id="dlgBienvenueBody"></div>
+  <div class="spacer"></div>
+  <button class="btn signal" id="bvSuivant" onclick="bienvenueSuivant()">Commencer</button>
 </dialog>
 
 <div class="toast" id="toast"></div>
