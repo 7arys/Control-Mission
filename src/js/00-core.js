@@ -58,6 +58,26 @@ function load(){
   if(!S.recettes.length) seedRecettes();
   migrateZones();
   if(typeof migrerBandes==="function") migrerBandes();
+  migrerRecords();
+}
+// Le rang d'aptitude reposait autrefois sur le volume cumulé, ce qui le faisait
+// monter même sans progresser. On reconstruit la meilleure séance par zone à
+// partir des débriefings enregistrés ; à défaut, la prochaine séance fera foi.
+function migrerRecords(){
+  if(S._migRec) return;
+  const best={};
+  for(const a of (S.analyses||[])){
+    const pz=(a.bilan&&a.bilan.parZone)||null;
+    if(!pz) continue;
+    for(const [z,v] of Object.entries(pz)){
+      const s=v/10;
+      if(!best[z]||s>best[z]) best[z]=s;
+    }
+  }
+  for(const [z,m] of Object.entries(S.muscles||{})){
+    if(m.record===undefined) m.record=Math.round((best[z]||0)*10)/10;
+  }
+  S._migRec=true;
 }
 function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0); }
 let BOOT=true;

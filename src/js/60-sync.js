@@ -81,6 +81,7 @@ function fusion(L,R){
     const a=(R.muscles||{})[z]||{pts:0,n:0,last:null}, b=(L.muscles||{})[z]||{pts:0,n:0,last:null};
     out.muscles[z]={
       pts:Math.max(a.pts||0,b.pts||0),
+      record:Math.max(a.record||0,b.record||0),
       n:Math.max(a.n||0,b.n||0),
       last:[a.last,b.last].filter(Boolean).sort().pop()||null
     };

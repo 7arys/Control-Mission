@@ -12,10 +12,11 @@ function construireBilan(s, setsMap, dureeMin, libre, musclesAvant, prs){
     const arr=setsMap[e.id]||[];
     const done=arr.filter(Boolean).length, prevu=arr.length;
     const charge=+e.poids||0;
-    const v=done*e.reps*charge;
+    const rr=(typeof equivReps==="function")?equivReps(e):e.reps;
+    const v=done*rr*charge;
     vol+=v; setsFaits+=done; setsPrevus+=prevu;
     const zs=e.zones||[];
-    for(const z of zs) parZone[z]=(parZone[z]||0)+(done*e.reps*(charge||8))/zs.length;
+    for(const z of zs) parZone[z]=(parZone[z]||0)+(done*rr*(charge||8))/zs.length;
     exos.push({nom:e.nom,done,prevu,reps:e.reps,poids:charge,vol:v,zones:zs,
                mode:e.mode||"kg", bande:e.bande||null,
                dejaComplet:exoPrecedentComplet(s.nom,e.nom),

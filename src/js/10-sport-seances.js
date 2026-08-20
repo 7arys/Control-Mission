@@ -12,22 +12,44 @@ const ZONES = [
   ["abdos","Abdos","ABD"],
   ["jambes","Jambes & Fessiers","JBS"],
 ];
+/* Le rang d'une zone reflète ta MEILLEURE séance sur cette zone, pas le total
+   accumulé : répéter la même séance maintient le rang, le dépasser le fait monter.
+   Score d'une séance pour une zone = Σ (séries faites × reps × charge) / 10,
+   réparti entre les zones travaillées par l'exercice. */
 const GRADES = [
   {pts:0,   g:"E",  nom:"Novice"},
-  {pts:40,  g:"D",  nom:"Apprenti"},
-  {pts:100, g:"C",  nom:"Confirmé"},
-  {pts:200, g:"B",  nom:"Aguerri"},
-  {pts:350, g:"A",  nom:"Élite"},
-  {pts:550, g:"S",  nom:"Maître"},
-  {pts:800, g:"SS", nom:"Légende"},
+  {pts:25,  g:"D",  nom:"Apprenti"},
+  {pts:45,  g:"C",  nom:"Confirmé"},
+  {pts:75,  g:"B",  nom:"Aguerri"},
+  {pts:115, g:"A",  nom:"Élite"},
+  {pts:165, g:"S",  nom:"Maître"},
+  {pts:230, g:"SS", nom:"Légende"},
 ];
-function gradeDe(pts){
+function gradeDe(score){
   let cur=GRADES[0], next=null;
   for(let i=0;i<GRADES.length;i++){
-    if(pts>=GRADES[i].pts) cur=GRADES[i];
+    if(score>=GRADES[i].pts) cur=GRADES[i];
     else { next=GRADES[i]; break; }
   }
   return {cur,next};
+}
+// Les exercices tenus en secondes (gainage) ne peuvent pas compter comme des
+// répétitions : 30 secondes de gainage ≈ 7 à 8 répétitions en charge de travail.
+function equivReps(e){
+  const sec=/seconde|gainage|planche|isom/i.test((e.nom||"")+" "+(e.note||""));
+  return sec ? (e.reps||0)/4 : (e.reps||0);
+}
+// score par zone pour une séance donnée
+function scoreZones(s, setsMap){
+  const z={};
+  for(const e of s.exos){
+    const done=(setsMap[e.id]||[]).filter(Boolean).length;
+    if(!done || !e.zones || !e.zones.length) continue;
+    const charge=e.poids>0?e.poids:8;          // poids du corps : équivalent forfaitaire
+    const v=done*equivReps(e)*charge/10;
+    for(const zone of e.zones) z[zone]=(z[zone]||0)+v/e.zones.length;
+  }
+  return z;
 }
 function inferZones(nom){
   const n=nom.toLowerCase();
@@ -93,16 +115,31 @@ function seedSeances(){
 // pts = séries cochées × reps × charge équivalente / 40, répartis entre les zones de l'exo
 // charge équivalente : poids saisi, sinon 8 (poids du corps / bande)
 function crediterMuscles(s, setsMap){
-  const gains={};
-  for(const e of s.exos){
-    const done=(setsMap[e.id]||[]).filter(Boolean).length;
-    if(!done || !e.zones || !e.zones.length) continue;
-    const charge=e.poids>0?e.poids:8;
-    const pts=done*e.reps*charge/40;
-    for(const z of e.zones) gains[z]=(gains[z]||0)+pts/e.zones.length;
+  const scores=scoreZones(s,setsMap);
+  const auj=todayKey();
+  const bonus=[];
+  for(const [z,v] of Object.entries(scores)){
+    const m=S.muscles[z]??={pts:0,last:null,n:0,record:0};
+    if(m.record===undefined) m.record=0;
+    const avant=gradeDe(m.record).cur.g;
+    if(v>m.record) m.record=Math.round(v*10)/10;   // seul un dépassement fait monter le rang
+    m.pts=Math.round((m.pts+v)*10)/10;             // volume cumulé, conservé à titre indicatif
+    if(m.last){
+      const jours=(new Date(auj)-new Date(m.last))/864e5;
+      if(jours>=1 && jours<=7) bonus.push(z);      // régularité : signalée, sans gonfler le rang
+    }
+    m.last=auj; m.n++;
+    const apres=gradeDe(m.record).cur.g;
+    if(apres!==avant){
+      const zl=ZONES.find(x=>x[0]===z);
+      const gr=GRADES.find(x=>x.g===apres);
+      setTimeout(()=>toast(`${zl[1]} passe au niveau ${apres} — ${gr.nom}`,"Aptitude relevée"),2200);
+    }
   }
-  return appliquerGains(gains);
+  save();
+  return bonus;
 }
+
 // Applique un dictionnaire {zone: points} avec bonus de régularité
 function appliquerGains(gains){
   const auj=todayKey();
@@ -129,7 +166,7 @@ function appliquerGains(gains){
 function zoneFaible(){
   let min=null;
   for(const [id] of ZONES){
-    const p=S.muscles[id]?.pts||0;
+    const p=S.muscles[id]?.record||0;
     if(min===null || p<min.p) min={id,p};
   }
   return min?.id;
@@ -169,9 +206,10 @@ function renderMuscles(){
   const faible=zoneFaible();
   const idxOf=g=>GRADES.findIndex(x=>x.g===g.g);
   w.innerHTML=ZONES.map(([id,label,ico])=>{
-    const m=S.muscles[id]||{pts:0,last:null,n:0};
-    const {cur,next}=gradeDe(m.pts);
-    const pct=next?Math.min(100,Math.round((m.pts-cur.pts)/(next.pts-cur.pts)*100)):100;
+    const m=S.muscles[id]||{pts:0,last:null,n:0,record:0};
+    const rec=m.record||0;
+    const {cur,next}=gradeDe(rec);
+    const pct=next?Math.min(100,Math.round((rec-cur.pts)/(next.pts-cur.pts)*100)):100;
     const dernier=m.last?fmtDate(m.last):"jamais";
     const ri=idxOf(cur);
     const rc=ri>=5?"var(--signal)":ri>=4?"var(--signal-deep)":ri>=2?"var(--foret)":"var(--sapin)";
@@ -179,7 +217,7 @@ function renderMuscles(){
       <div class="cote-head"><span><span class="zcode">[${ico}]</span>${label}</span>
         <span class="cote-grade" style="color:${rc}">${cur.g==="SS"?"★":""}${cur.g}<small class="cote-titre">${cur.nom}</small></span></div>
       <div class="cote-bar"><i style="width:${pct}%"></i></div>
-      <div class="cote-meta">${next?`${Math.round(m.pts)} / ${next.pts} pts vers niv. ${next.g}`:`${Math.round(m.pts)} pts — niveau max`} · ${m.n} mission${m.n>1?"s":""} · dernier : ${dernier}</div>
+      <div class="cote-meta">${next?`meilleure séance ${Math.round(rec)} · ${next.pts} pour le niv. ${next.g}`:`meilleure séance ${Math.round(rec)} — niveau max`} · ${m.n} mission${m.n>1?"s":""} · dernier : ${dernier}</div>
       ${id===faible?`<div class="hand" style="font-size:16px">▶ zone prioritaire cette semaine</div>`:""}
     </div>`;
   }).join("");
