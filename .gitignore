@@ -1,0 +1,8 @@
+# Dépendances et fichiers temporaires
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# Sauvegardes locales exportées depuis l'application
+expedition-*.json

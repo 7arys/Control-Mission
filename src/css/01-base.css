@@ -1,0 +1,105 @@
+/* ============================================================
+   SOCLE — en-tête, navigation, cartes, boutons, champs.
+   Tout ce qui est commun à toutes les pages.
+   ============================================================ */
+/* ---------- compat : anciens noms de variables ---------- */
+:root{--kraft:var(--bg);--craie:var(--panel);--kraft-deep:var(--line);--foret:var(--panel2);
+      --sapin:var(--dim);--signal:var(--accent);--signal-deep:var(--accent2);--topo:var(--line);
+      --hand:var(--mono);--shadow:none;}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{
+  font-family:var(--body);font-size:14.5px;color:var(--ink);background:var(--bg);
+  background-image:var(--tex);background-size:var(--tex-size);background-attachment:fixed;
+  min-height:100vh;line-height:1.5;
+  padding-bottom:calc(100px + env(safe-area-inset-bottom));
+}
+::selection{background:var(--accent);color:var(--bg)}
+/* ---------- Header ---------- */
+header{
+  padding:calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
+  border-bottom:1px solid var(--line);
+}
+.hd-top{display:flex;justify-content:space-between;align-items:baseline;max-width:980px;margin:0 auto;gap:10px;flex-wrap:wrap}
+.hd-title{font-family:var(--display);font-weight:700;font-size:clamp(18px,4.4vw,26px);letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.hd-title span{color:var(--accent)}
+.hd-streak{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.hd-streak b{color:var(--accent2);font-size:13px}
+.sysline{max-width:980px;margin:3px auto 0;font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);line-height:1.5;overflow-wrap:anywhere}
+.sysline b{color:var(--accent);font-weight:500}
+#ascension{display:block;width:100%;max-width:980px;margin:6px auto 0;height:38px;cursor:pointer}
+.hd-alt{max-width:980px;margin:0 auto;display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:0 0 10px;flex-wrap:wrap}
+.hd-alt span:nth-child(2){color:var(--accent2)}
+/* ---------- Navigation ---------- */
+nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:60;
+  background:var(--bg);border-top:1px solid var(--line);
+  display:flex;
+  padding:7px calc(2px + env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) calc(2px + env(safe-area-inset-left));
+}
+nav button{
+  flex:1 1 0;min-width:0;
+  font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.03em;text-transform:uppercase;
+  background:none;border:none;color:var(--dim);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;
+  -webkit-tap-highlight-color:transparent;
+}
+nav button>span:last-child,nav button{white-space:nowrap}
+nav button .ico{font-family:var(--mono);font-weight:500;font-size:8.5px;letter-spacing:.06em;opacity:.6}
+nav button.active{color:var(--ink)}
+nav button.active .ico{color:var(--accent);opacity:1}
+nav button.active::after{content:"";width:70%;height:2px;background:var(--accent);margin-top:3px;box-shadow:var(--glow)}
+/* ---------- Layout ---------- */
+main{max-width:980px;margin:0 auto;padding:16px calc(14px + env(safe-area-inset-right)) 30px calc(14px + env(safe-area-inset-left))}
+section.page{display:none}
+section.page.visible{display:block;animation:fadein .16s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+h2{font-family:var(--display);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink);margin:20px 0 10px}
+h2::before{content:"//";color:var(--accent);margin-right:8px}
+h2:first-child{margin-top:0}
+.card h2,.seance-head h2{font-size:14px}
+.hand{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent2)}
+/* ---------- Panneaux ---------- */
+.card{
+  position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px;margin-bottom:12px;
+}
+.card::before,.card::after{content:"";position:absolute;width:10px;height:10px;pointer-events:none;opacity:var(--corner)}
+.card::before{top:-1px;left:-1px;border-top:2px solid var(--accent);border-left:2px solid var(--accent)}
+.card::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
+[data-theme="apollo"] .card::before,[data-theme="apollo"] .card::after{display:none}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 150px;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:520px){.grid2{grid-template-columns:1fr}}
+/* ---------- Boutons ---------- */
+button.btn{
+  font-family:var(--display);font-weight:600;font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;
+  background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+  border-radius:var(--r);padding:11px 14px;cursor:pointer;transition:all .1s ease;
+  white-space:normal;overflow-wrap:anywhere;line-height:1.3;min-width:0;
+}
+button.btn:active{transform:translateY(1px)}
+button.btn.signal{background:transparent;color:var(--accent);border-color:var(--accent);box-shadow:var(--glow)}
+button.btn.signal:active{background:var(--accent);color:var(--bg)}
+button.btn.ghost{background:transparent;color:var(--dim)}
+button.btn.small{padding:6px 10px;font-size:10.5px}
+button.btn.danger{background:transparent;color:var(--danger);border-color:var(--danger)}
+button.btn:disabled{opacity:.4;cursor:default}
+/* ---------- Champs ---------- */
+input,select,textarea{
+  font-family:var(--body);font-size:14.5px;color:var(--ink);
+  background:var(--bg);border:1px solid var(--line);border-radius:var(--r);
+  padding:9px 10px;width:100%;caret-color:var(--accent);
+}
+input::placeholder,textarea::placeholder{color:var(--dim);opacity:.6}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:1.5px solid var(--accent);outline-offset:1px}
+select{appearance:none;-webkit-appearance:none}
+label.fld{display:block;flex:1 1 152px;min-width:152px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:10px}
+label.fld input,label.fld select{margin-top:4px}
+/* ---------- Étiquettes ---------- */
+.stamp{display:inline-block;font-family:var(--display);font-weight:600;font-size:10.5px;letter-spacing:.16em;
+  color:var(--accent2);border:1px solid var(--accent2);border-radius:var(--r);padding:3px 9px;text-transform:uppercase}
+.tag{display:inline-block;font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--dim);border:1px solid var(--line);border-radius:var(--r);padding:3px 7px;margin:2px 3px 2px 0;background:transparent;cursor:default}
+.tag.on{color:var(--bg);background:var(--accent);border-color:var(--accent)}

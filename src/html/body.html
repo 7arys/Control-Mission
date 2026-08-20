@@ -1,0 +1,345 @@
+<body>
+<header>
+  <div class="hd-top">
+    <div class="hd-title">Contrôle <span>Mission</span></div>
+    <div class="hd-streak" id="hdStreak"></div>
+  </div>
+  <div class="sysline">Opérateur <b>DEXYRAT</b> ▸ systèmes nominaux ▸ <span id="sysClock"></span></div>
+  <svg id="ascension" viewBox="0 0 980 38" preserveAspectRatio="none" aria-label="Sondes en vol" onclick="document.querySelector('[data-page=base]').click();window.scrollTo({top:0,behavior:'smooth'})"></svg>
+  <div class="hd-alt"><span id="hdCamp"></span><span id="hdAlt"></span><span id="hdNext"></span></div>
+</header>
+
+<nav>
+  <button data-page="base" class="active"><span class="ico">01</span>Contrôle</button>
+  <button data-page="seances"><span class="ico">02</span>Missions</button>
+  <button data-page="poids"><span class="ico">03</span>Télémétrie</button>
+  <button data-page="repas" data-mod="vivres"><span class="ico">04</span>Vivres</button>
+  <button data-page="carnet"><span class="ico">05</span>Dossier</button>
+</nav>
+
+<main>
+
+<!-- ================= CAMP DE BASE ================= -->
+<section class="page visible" id="page-base">
+  <div class="card" id="carteSpatiale"></div>
+  <div class="card" id="carteLore"></div>
+  <div class="card" id="baseQuete"></div>
+  <div class="grid2">
+    <div class="card" id="baseSeance"></div>
+    <div class="card" id="basePoids"></div>
+  </div>
+  <div class="card" id="baseRepas"></div>
+  <div class="card" id="baseJournal"></div>
+</section>
+
+<!-- ================= SÉANCES ================= -->
+<section class="page" id="page-seances">
+  <div id="seanceEnCours"></div>
+  <h2>Aptitude opérationnelle</h2>
+  <p class="muted" style="margin-bottom:8px">Niveaux d'aptitude de E (Novice) à ★SS (Légende). Le niveau monte avec le volume réel (séries cochées × reps × charge), bonus ×1,25 si la zone est retravaillée sous 7 jours.</p>
+  <div id="cotationGrid"></div>
+  <h2>Ordres de mission</h2>
+  <div id="listeSeances"></div>
+  <div class="row">
+    <button class="btn signal" id="btnSeanceLibre">▶ Mission libre</button>
+    <button class="btn ghost" id="btnAddSeance">+ Nouvelle séance</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="row" id="modeProgramme"></div>
+  <h2>Bandes élastiques</h2>
+  <div class="card flat" id="listeBandes"></div>
+  <h2>Récupération</h2>
+  <div class="card flat">
+    <p class="muted">Courbatures, fatigue, blessure : consigne la journée. Aucun point gagné, mais ta série continue et l'app adapte ses suggestions.</p>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btnRepos">◦ Journée de repos</button>
+  </div>
+  <h2>Sortie extérieure</h2>
+  <div class="card flat">
+    <p class="muted">Rando, parcours, vélo, escalade… tout effort hors programme se consigne ici en trois taps et crédite tes points et tes aptitudes.</p>
+    <div class="spacer"></div>
+    <button class="btn signal" id="btnActivite">▲ Consigner une sortie</button>
+  </div>
+  <h2>Débriefings</h2>
+  <div class="card" id="listeAnalyses"></div>
+  <h2>Journal des opérations</h2>
+  <div class="card" id="histoSeances"></div>
+</section>
+
+<!-- ================= POIDS ================= -->
+<section class="page" id="page-poids">
+  <div class="card">
+    <h2>Télémétrie — relevé du jour</h2>
+    <div class="row">
+      <label class="fld">Poids (kg)<input type="number" step="0.1" min="30" max="250" id="inPoids" inputmode="decimal" placeholder="72.4"></label>
+      <label class="fld">Masse grasse % <span class="muted">(optionnel)</span><input type="number" step="0.1" min="3" max="60" id="inMg" inputmode="decimal" placeholder="18.2"></label>
+      <label class="fld">Masse musculaire <span class="muted">(optionnel)</span>
+        <span style="display:flex;gap:6px;margin-top:4px">
+          <input type="number" step="0.1" min="5" max="120" id="inMm" inputmode="decimal" placeholder="41.5" style="flex:1">
+          <select id="inMmUnit" style="max-width:76px"><option value="pct">%</option><option value="kg">kg</option></select>
+        </span></label>
+    </div>
+    <p class="cote-meta" style="margin:-2px 0 8px">Masse musculaire Withings : valeurs typiques 70 à 88 % (elle inclut l'eau corporelle).</p>
+    <button class="btn signal" id="btnAddPoids">Consigner · +15 pts</button>
+    <p class="muted" style="margin-top:8px">Astuce : la balance affiche le chiffre, tu le notes ici en 2 tapes. Pour recaler l'historique complet, importe le CSV Withings ci-dessous.</p>
+  </div>
+  <div class="card">
+    <h2>Tendance</h2>
+    <svg id="poidsChart" viewBox="0 0 940 320" role="img" aria-label="Courbe de poids"></svg>
+    <div class="chart-legend">
+      <span><i style="background:var(--kraft-deep)"></i>Pesées brutes</span>
+      <span><i style="background:var(--signal)"></i>Tendance 7 jours</span>
+    </div>
+    <p class="hand" id="poidsVerdict" style="margin-top:6px"></p>
+  </div>
+  <div class="card">
+    <h2>Composition</h2>
+    <div id="compoBloc"></div>
+  </div>
+  <div class="card">
+    <h2>Import Withings (CSV)</h2>
+    <p class="muted">Dans l'app Withings : Profil → Télécharger mes données, ou export depuis le tableau de bord web. Le fichier <b>weight.csv</b> (ou « poids.csv ») est reconnu automatiquement.</p>
+    <div class="spacer"></div>
+    <input type="file" id="inCsv" accept=".csv,text/csv">
+    <p class="muted" id="csvStatus" style="margin-top:6px"></p>
+  </div>
+  <div class="card">
+    <h2>Dernières pesées</h2>
+    <table class="mini" id="tblPoids"></table>
+  </div>
+</section>
+
+<!-- ================= REPAS ================= -->
+<section class="page" id="page-repas">
+  <div class="card">
+    <h2>Ravitaillement hebdomadaire</h2>
+    <p class="muted">Objectif : surplus léger, ≈ <b id="protCible"></b> g de protéines / jour.</p>
+    <div class="spacer"></div>
+    <div class="row">
+      <button class="btn signal" id="btnGenSemaine">Générer la semaine · +60 pts</button>
+      <button class="btn ghost" id="btnCourses">Liste de courses</button>
+    </div>
+    <p class="muted" id="genStatus" style="margin-top:6px"></p>
+  </div>
+  <div id="planSemaine"></div>
+  <h2>Base de recettes</h2>
+  <div class="card" id="listeRecettes"></div>
+  <button class="btn ghost" id="btnAddRecette">+ Nouvelle recette</button>
+</section>
+
+<!-- ================= CARNET ================= -->
+<section class="page" id="page-carnet">
+  <h2>Insignes</h2>
+  <div class="jalons" id="jalonsGrid"></div>
+  <h2>Modules de l'application</h2>
+  <div class="card">
+    <p class="muted">Coupe ce que tu n'utilises pas. Rien n'est effacé : tes données restent et le module se réactive à tout moment.</p>
+    <div class="spacer"></div>
+    <div id="modulesToggle"></div>
+  </div>
+
+  <h2>Intelligence artificielle</h2>
+  <div class="card">
+    <p class="muted">Optionnel. Active l'analyse approfondie des séances et la génération des menus. Deux options sont entièrement gratuites.</p>
+    <div class="spacer"></div>
+    <div id="iaConfig"></div>
+  </div>
+
+  <h2>Synchronisation iPhone ⇄ PC</h2>
+  <div class="card">
+    <p class="muted">Relie tes appareils via Supabase. Ces trois réglages restent sur cet appareil et ne sont jamais envoyés en ligne.</p>
+    <div class="spacer"></div>
+    <label class="fld">URL du projet Supabase<input id="syncUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off"></label>
+    <label class="fld">Clé publique « anon »<input id="syncKey" type="password" placeholder="eyJhbGciOi…" autocomplete="off"></label>
+    <label class="fld">Identifiant d'espace <span class="muted">(identique sur les deux appareils)</span>
+      <input id="syncEspace" placeholder="clique sur Générer" autocomplete="off"></label>
+    <div class="row">
+      <button class="btn" id="syncSave">Enregistrer</button>
+      <button class="btn ghost" id="syncGen">Générer un ID</button>
+      <button class="btn signal" id="syncNow">Synchroniser</button>
+    </div>
+    <p class="muted" id="syncEtat" style="margin-top:8px"></p>
+    <div class="spacer"></div>
+    <label class="fld" style="margin-bottom:6px">Appairer un second appareil</label>
+    <div class="row">
+      <button class="btn ghost small" id="syncCopy">Copier le code</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="row">
+      <input id="syncPaste" placeholder="Coller le code ici" autocomplete="off" style="flex:2">
+      <button class="btn small" id="syncApply">Appliquer</button>
+    </div>
+  </div>
+
+  <h2>Réglages & archives</h2>
+  <div class="card">
+    <label class="fld" style="margin-bottom:6px">Habillage de l'interface</label>
+    <div class="skins" id="skinPicker"></div>
+    <label class="fld">Objectif protéines (g/jour)<input type="number" id="setProt" min="60" max="260"></label>
+    <div class="row">
+      <label class="fld">Missions / semaine<input type="number" id="setObjS" min="1" max="7"></label>
+      <label class="fld">Pesées / semaine<input type="number" id="setObjP" min="1" max="7"></label>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnSaveSettings">Enregistrer</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="row">
+      <button class="btn ghost" id="btnExport">Exporter (JSON)</button>
+      <button class="btn ghost" id="btnImport">Importer</button>
+      <input type="file" id="inImport" accept=".json" style="display:none">
+    </div>
+    <div class="spacer"></div>
+    <button class="btn danger" id="btnReset">Effacer le dossier</button>
+  </div>
+</section>
+
+</main>
+
+<!-- Dialog séance -->
+<dialog id="dlgSeance">
+  <h2 id="dlgSeanceTitle">Mission</h2>
+  <label class="fld">Nom<input id="dsNom"></label>
+  <div id="dsExos"></div>
+  <button class="btn ghost small" id="dsAddExo">+ Exercice</button>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn" id="dsSave">Enregistrer</button>
+    <button class="btn ghost" id="dsCancel">Annuler</button>
+    <button class="btn danger" id="dsDelete">Supprimer</button>
+  </div>
+</dialog>
+
+<!-- Dialog recette -->
+<dialog id="dlgRecette">
+  <h2 id="dlgRecetteTitle">Recette</h2>
+  <label class="fld">Nom<input id="drNom"></label>
+  <div class="row">
+    <label class="fld">Type<select id="drType">
+      <option value="petitdej">Petit-déj</option>
+      <option value="dej">Déjeuner</option>
+      <option value="diner">Dîner</option>
+      <option value="collation">Collation</option>
+    </select></label>
+    <label class="fld">Kcal<input type="number" id="drKcal" min="0"></label>
+    <label class="fld">Protéines (g)<input type="number" id="drProt" min="0"></label>
+  </div>
+  <label class="fld">Ingrédients <span class="muted">(un par ligne : « 300 g Poulet »)</span>
+    <textarea id="drIng" rows="5"></textarea></label>
+  <div class="row">
+    <button class="btn" id="drSave">Enregistrer</button>
+    <button class="btn ghost" id="drCancel">Annuler</button>
+    <button class="btn danger" id="drDelete">Supprimer</button>
+  </div>
+</dialog>
+
+<!-- Dialog courses -->
+<dialog id="dlgCourses">
+  <h2>Liste de courses</h2>
+  <p class="muted" id="coursesInfo"></p>
+  <ul class="courses" id="coursesList"></ul>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn" id="btnCopyCourses">Copier la liste</button>
+    <button class="btn ghost" id="btnCloseCourses">Fermer</button>
+  </div>
+</dialog>
+
+<!-- Dialog activité extérieure -->
+<dialog id="dlgActivite">
+  <h2>Consigner une sortie</h2>
+  <div id="dlgActBody"></div>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" id="actValider">Consigner</button>
+    <button class="btn ghost" id="actAnnuler">Annuler</button>
+  </div>
+</dialog>
+
+<!-- Dialog débriefing -->
+<dialog id="dlgDebrief">
+  <h2 id="dlgDebriefTitle">Débriefing</h2>
+  <div id="dlgDebriefBody"></div>
+  <div class="spacer"></div>
+  <button class="btn" id="dbgFermer">Fermer</button>
+</dialog>
+
+<!-- Dialog lancement de sonde -->
+<dialog id="dlgSonde">
+  <h2>Lancer une sonde</h2>
+  <div id="dlgSondeBody"></div>
+  <div class="spacer"></div>
+  <button class="btn ghost" id="sondeFermer">Fermer</button>
+</dialog>
+
+<!-- Dialog atelier -->
+<dialog id="dlgAtelier">
+  <h2>Atelier de construction</h2>
+  <div id="dlgAtelierBody"></div>
+  <div class="spacer"></div>
+  <button class="btn ghost" id="atelierFermer">Fermer</button>
+</dialog>
+
+<!-- Dialog repos -->
+<dialog id="dlgRepos">
+  <h2>Journée de repos</h2>
+  <div id="dlgReposBody"></div>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" id="reposValider">Consigner</button>
+    <button class="btn ghost" id="reposAnnuler">Annuler</button>
+  </div>
+</dialog>
+
+<!-- Dialog échauffement -->
+<dialog id="dlgEchauf">
+  <h2>Échauffement</h2>
+  <p class="muted">Une ligne par étape. Adapte-le à ce qui te fait du bien.</p>
+  <div class="spacer"></div>
+  <textarea id="echTexte" rows="9"></textarea>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" onclick="sauverEchauf()">Enregistrer</button>
+    <button class="btn ghost" onclick="resetEchauf()">Par défaut</button>
+    <button class="btn ghost" onclick="document.getElementById('dlgEchauf').close()">Fermer</button>
+  </div>
+</dialog>
+
+<!-- Dialog bandes -->
+<dialog id="dlgBandes">
+  <h2>Résistances des bandes</h2>
+  <p class="muted">Une ligne par bande, de la plus souple à la plus dure, au format <b>Nom : résistance en kg</b>. La valeur est souvent imprimée sur la bande ou dans la notice SmartWorkout.</p>
+  <div class="spacer"></div>
+  <textarea id="bandesTexte" rows="7"></textarea>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" onclick="sauverBandes()">Enregistrer</button>
+    <button class="btn ghost" onclick="resetBandes()">Par défaut</button>
+    <button class="btn ghost" onclick="document.getElementById('dlgBandes').close()">Fermer</button>
+  </div>
+</dialog>
+
+<!-- Dialog journal complet -->
+<dialog id="dlgLore">
+  <h2>Journal de bord</h2>
+  <div id="dlgLoreBody"></div>
+  <div class="spacer"></div>
+  <div class="row">
+    <button class="btn signal" onclick="editerEntree(null)">+ Écrire</button>
+    <button class="btn ghost" onclick="document.getElementById('dlgLore').close()">Fermer</button>
+  </div>
+</dialog>
+
+<!-- Dialog entrée -->
+<dialog id="dlgEntree">
+  <h2 id="dlgEntreeTitre">Nouvelle entrée</h2>
+  <label class="fld">Date<input type="date" id="loreDate"></label>
+  <label class="fld">Titre<input id="loreTitre" placeholder="ex : Retour de la sonde 12"></label>
+  <label class="fld">Texte<textarea id="loreTexte" rows="7" placeholder="Ce que tu veux : le récit de la mission, une note personnelle, un souvenir de séance…"></textarea></label>
+  <div class="row">
+    <button class="btn signal" onclick="sauverEntree()">Enregistrer</button>
+    <button class="btn ghost" onclick="document.getElementById('dlgEntree').close()">Annuler</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>

@@ -1,0 +1,79 @@
+/* ============================================================
+   PALETTES — les 3 habillages. Modifier ici pour changer les couleurs
+   et les polices. Chaque skin redéfinit les mêmes variables.
+   ============================================================ */
+
+/* ==========================================================
+   SKIN 1 — ORBITE  (sci-fi spatial : bleu nuit / cyan / orange)
+   ========================================================== */
+:root,[data-theme="orbite"]{
+  --bg:#070B14;
+  --panel:#0D1522;
+  --panel2:#111C2D;
+  --ink:#D3E0F0;
+  --dim:#6B87A8;
+  --line:#1E3350;
+  --accent:#37D5E8;
+  --accent2:#FF8A3D;
+  --danger:#FF5A6E;
+  --ok:#37E8A0;
+  --r:6px;
+  --display:'Chakra Petch',sans-serif;
+  --body:'Space Grotesk',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --glow:0 0 18px rgba(55,213,232,.14);
+  --tex:radial-gradient(1px 1px at 20% 30%,rgba(211,224,240,.30),transparent),
+        radial-gradient(1px 1px at 70% 15%,rgba(211,224,240,.22),transparent),
+        radial-gradient(1.4px 1.4px at 45% 70%,rgba(211,224,240,.25),transparent),
+        radial-gradient(1px 1px at 85% 60%,rgba(211,224,240,.20),transparent),
+        radial-gradient(1px 1px at 10% 85%,rgba(211,224,240,.18),transparent);
+  --tex-size:520px 520px;
+  --corner:1;
+}
+/* ==========================================================
+   SKIN 2 — APOLLO  (mission control 1969 : gris console / ambre / rouge)
+   ========================================================== */
+[data-theme="apollo"]{
+  --bg:#15181A;
+  --panel:#1F2529;
+  --panel2:#272F33;
+  --ink:#EDE6D6;
+  --dim:#93writing;
+  --dim:#93998F;
+  --line:#3A443F;
+  --accent:#FFB020;
+  --accent2:#E03C31;
+  --danger:#E03C31;
+  --ok:#8FC96B;
+  --r:2px;
+  --display:'Barlow Condensed',sans-serif;
+  --body:'IBM Plex Mono',monospace;
+  --mono:'IBM Plex Mono',monospace;
+  --glow:none;
+  --tex:repeating-linear-gradient(to bottom,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);
+  --tex-size:auto;
+  --corner:0;
+}
+/* ==========================================================
+   SKIN 3 — TACTIQUE  (HUD gaming : noir / violet électrique / or)
+   ========================================================== */
+[data-theme="tactique"]{
+  --bg:#0A0A11;
+  --panel:#14141F;
+  --panel2:#1B1B2B;
+  --ink:#EDEDF7;
+  --dim:#7C7C9E;
+  --line:#2A2A45;
+  --accent:#8B5CFF;
+  --accent2:#FFD166;
+  --danger:#FF4D6D;
+  --ok:#3DDC97;
+  --r:0px;
+  --display:'Orbitron',sans-serif;
+  --body:'Space Grotesk',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --glow:0 0 22px rgba(139,92,255,.20);
+  --tex:repeating-linear-gradient(115deg,rgba(139,92,255,.05) 0 1px,transparent 1px 26px);
+  --tex-size:auto;
+  --corner:2;
+}

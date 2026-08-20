@@ -1,0 +1,32 @@
+/* ============================================================
+   ADAPTATIF — ajustements mobile et bureau.
+   Toujours en dernier : ces règles doivent pouvoir écraser les autres.
+   ============================================================ */
+@media(max-width:760px){
+  input,select,textarea{font-size:16px}
+  button.btn{font-size:11.5px;letter-spacing:.05em;padding:11px 10px}
+  button.btn.small{font-size:10px;letter-spacing:.03em;padding:7px 8px}
+  h2{font-size:14px;letter-spacing:.1em}
+  .dbg-kpi{gap:6px}
+  .dbg-kpi>div{padding:7px 4px}
+  table.mini{font-size:12px}
+  table.mini td{padding:6px 3px}
+  .skins{gap:6px}
+  .skin{padding:7px}
+}
+@media(max-width:400px){
+  nav button{font-size:10px;letter-spacing:0}
+  nav button .ico{font-size:8px}
+  .row>*{flex:1 1 100%}
+  .row>button.btn.small{flex:1 1 auto}
+  label.fld{min-width:0}
+  .sp-res,.compo{grid-template-columns:1fr 1fr}
+  .sp-res>div:last-child,.compo>div:last-child{grid-column:1/-1}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(min-width:760px){
+  body{padding-bottom:30px}
+  nav{position:sticky;top:0;bottom:auto;border-top:none;border-bottom:1px solid var(--line);justify-content:center;gap:22px;padding-bottom:7px}
+  nav button{flex:0 0 auto;padding:4px 12px;font-size:12px;letter-spacing:.06em}
+  .toast{bottom:28px}
+}
