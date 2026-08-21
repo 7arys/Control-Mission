@@ -32,8 +32,22 @@ function iaPrete(){ return !!((S.settings&&S.settings.apiKey||"").trim()); }
 
 /* --- appel unifié : renvoie du texte brut --- */
 const IA_ATTENTES=[1500,4000,9000];          // attente croissante entre deux essais
-const IA_REPRENDRE=[429,500,502,503,504];    // codes qui méritent un nouvel essai
-let iaProgres=null;                          // callback facultatif pour informer l'utilisateur
+const IA_REPRENDRE=[500,502,503,504];        // surcharges passagères : on réessaie
+const IA_QUOTA=429;                          // quota : inutile d'insister sans délai indiqué
+let iaProgres=null;
+// compteur local : le quota gratuit se compte par jour et par projet Google
+function iaCompteur(){
+  const j=todayKey();
+  let c={};
+  try{ c=JSON.parse(localStorage.getItem("expedition_ia")||"{}"); }catch(e){}
+  if(c.jour!==j) c={jour:j,n:0};
+  return c;
+}
+function iaIncrementer(){
+  const c=iaCompteur(); c.n=(c.n||0)+1;
+  localStorage.setItem("expedition_ia",JSON.stringify(c));
+  return c.n;
+}                          // callback facultatif pour informer l'utilisateur
 const iaPause=ms=>new Promise(r=>setTimeout(r,ms));
 
 function requeteIA(f, modele, prompt, mt, key){
@@ -60,27 +74,39 @@ function requeteIA(f, modele, prompt, mt, key){
 }
 
 // un modèle, avec reprises automatiques si le service est saturé
+// message d'erreur renvoyé par le fournisseur, s'il en donne un
+async function lireErreur(r){
+  try{
+    const t=await r.clone().text();
+    const j=JSON.parse(t);
+    const m=(j.error&&(j.error.message||j.error.status))||"";
+    return String(m).slice(0,120);
+  }catch(e){ return ""; }
+}
 async function essayerModele(f, modele, prompt, mt, key){
   const q=requeteIA(f,modele,prompt,mt,key);
-  let statut=0;
+  let statut=0, detail="";
   for(let i=0;i<=IA_ATTENTES.length;i++){
-    let r=null;
-    try{ r=await fetch(q.url,q.opts); }
+    let r=null, ra=NaN;
+    try{ iaIncrementer(); r=await fetch(q.url,q.opts); }
     catch(e){ statut=0; }
     if(r){
       if(r.ok) return q.lire(await r.json());
       statut=r.status;
-      if(!IA_REPRENDRE.includes(statut)) break;   // erreur définitive : inutile d'insister
+      ra=r.headers?parseInt(r.headers.get("retry-after")||"",10):NaN;
+      try{ detail=await lireErreur(r); }catch(e){}
+      // quota : on ne réessaie que si le serveur annonce un délai court (limite par minute)
+      if(statut===IA_QUOTA && !(ra>0&&ra<=90)) break;
+      if(statut!==IA_QUOTA && !IA_REPRENDRE.includes(statut)) break;
     }
     if(i===IA_ATTENTES.length) break;
     let attente=IA_ATTENTES[i];
-    const ra=r&&r.headers?parseInt(r.headers.get("retry-after")||"",10):NaN;
     if(ra>0) attente=ra*1000;
     attente+=Math.round(Math.random()*700);      // décalage aléatoire : évite que tout le monde réessaie en même temps
     if(iaProgres) iaProgres(`${f.nom} saturé — nouvel essai dans ${Math.round(attente/1000)} s…`);
     await iaPause(attente);
   }
-  const e=new Error(msgErr(f.nom,statut));
+  const e=new Error(msgErr(f.nom,statut,detail));
   e.statut=statut;
   throw e;
 }
@@ -94,7 +120,7 @@ async function appelIA(prompt, maxTokens){
     return await essayerModele(f,modele,prompt,mt,key);
   }catch(e){
     // saturation persistante ou modèle inconnu : on tente un modèle de repli
-    if(e.statut===503||e.statut===404||e.statut===500){
+    if(e.statut===503||e.statut===404||e.statut===500){   // pas sur un 429 : le quota est commun au projet
       const secours=(IA_SECOURS[f.id]||[]).filter(m=>m!==modele);
       for(const m of secours){
         if(iaProgres) iaProgres(`Bascule sur le modèle de secours ${m}…`);
@@ -108,10 +134,16 @@ async function appelIA(prompt, maxTokens){
     throw e;
   }
 }
-function msgErr(nom,code){
+function msgErr(nom,code,detail){
+  const d=detail?" — "+detail:"";
   if(!code)          return nom+" : pas de réponse (réseau ou navigateur)";
-  if(code===401||code===403) return nom+" : clé refusée";
-  if(code===429)     return nom+" : quota atteint, réessaie dans quelques minutes";
+  if(code===401||code===403) return nom+" : clé refusée"+d;
+  if(code===429){
+    const journalier=/day|daily|per day|RPD/i.test(detail||"");
+    return journalier
+      ? nom+" : quota du jour épuisé. Il repart vers 9 h du matin (minuit heure du Pacifique). Essaie un modèle Flash-Lite, bien plus généreux."
+      : nom+" : trop de requêtes rapprochées. Attends une minute, ou passe à un modèle Flash-Lite."+d;
+  }
   if(code===404)     return nom+" : modèle introuvable — vérifie son nom dans le Dossier";
   if(code===503)     return nom+" : modèle saturé côté serveur. Rien à voir avec ta clé — réessaie dans un instant";
   if(code>=500)      return nom+" : panne temporaire du service ("+code+")";
@@ -157,7 +189,8 @@ function renderIAConfig(){
     <button class="btn signal" id="iaTest">Tester</button>
     ${f.id==="gemini"?`<button class="btn ghost" id="iaListe">Modèles disponibles</button>`:""}
   </div>
-  <p class="muted" id="iaEtat" style="margin-top:8px">${iaPrete()?"Clé enregistrée.":"Aucune clé : le bilan technique des séances reste disponible sans IA."}</p>`;
+  <p class="muted" id="iaEtat" style="margin-top:8px">${iaPrete()?"Clé enregistrée.":"Aucune clé : le bilan technique des séances reste disponible sans IA."}</p>
+  <p class="cote-meta">${iaCompteur().n||0} requête${(iaCompteur().n||0)>1?"s":""} envoyée${(iaCompteur().n||0)>1?"s":""} aujourd'hui depuis cet appareil.${f.id==="gemini"?" Les modèles <b>Flash-Lite</b> ont le quota gratuit le plus large ; les modèles en avant-première, le plus étroit." : ""}</p>`;
   w.querySelectorAll("[data-ia]").forEach(b=>b.onclick=()=>{
     S.settings.iaProvider=b.dataset.ia;
     S.settings.iaModel="";
