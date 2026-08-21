@@ -467,7 +467,7 @@ p.aide b{color:var(--ink);font-weight:600}
 <section class="page" id="page-seances">
   <div id="seanceEnCours"></div>
   <h2>Aptitude opérationnelle</h2>
-  <p class="muted" style="margin-bottom:8px">Niveaux de E (Novice) à SS (Légende). Le niveau reflète ta <b>meilleure séance</b> sur la zone, pas le total accumulé : refaire la même séance le maintient, la dépasser le fait monter.</p>
+  <p class="muted" style="margin-bottom:8px">Niveaux de E (Novice) à SS (Légende). Le niveau mesure ta <b>progression depuis ta première séance</b> sur la zone : tu démarres Novice partout, et tu montes en dépassant ta propre référence. Refaire la même séance maintient le rang.</p>
   <div id="cotationGrid"></div>
   <h2>Ordres de mission</h2>
   <div id="listeSeances"></div>
@@ -574,7 +574,7 @@ p.aide b{color:var(--ink);font-weight:600}
       <p class="aide">Il s'ouvre dès que tu valides une séance. Il calcule un <b>indice sur 100</b> (exécution des séries, progression du volume, records), et surtout donne un <b>ajustement par exercice</b> : augmenter, consolider, alléger. Il te demande aussi comment tu as ressenti la séance — si tu réponds « difficile », aucune augmentation ne sera proposée, même avec toutes les séries bouclées.</p></details>
 
     <details><summary><b>Aptitude opérationnelle (rangs E → SS)</b></summary>
-      <p class="aide">Chaque zone musculaire a un rang qui reflète ta <b>meilleure séance</b> sur cette zone. Répéter la même séance maintient le rang ; le dépasser le fait monter. La zone la plus en retard est encadrée : c'est celle à privilégier.</p></details>
+      <p class="aide">Chaque zone musculaire a un rang qui mesure ta <b>progression depuis ta première séance</b> sur cette zone — pas un volume absolu. Tout le monde démarre Novice, et on monte en dépassant sa propre référence : +15 % pour Apprenti, +35 % pour Confirmé, et ainsi de suite. Deux séances sont nécessaires avant qu'un rang s'affiche. La zone la plus en retard est encadrée.</p></details>
 
     <details><summary><b>Points, secteurs et récupération</b></summary>
       <p class="aide">Une mission vaut 120 points, une pesée 15, l'ordre de mission hebdomadaire 100. Les points font progresser ton <b>secteur</b>, de l'aire de lancement à l'espace profond. Après une séance, l'application recommande une journée de <b>récupération</b> : le muscle se reconstruit pendant le repos, pas pendant l'effort. Tu peux consigner un jour de repos — aucun point, mais ta série continue et les zones courbaturées sont prises en compte.</p></details>
@@ -915,20 +915,26 @@ function migrerProfil(){
   S._migProfil=true;
 }
 function migrerRecords(){
-  if(S._migRec) return;
-  const best={};
-  for(const a of (S.analyses||[])){
+  if(S._migBase) return;
+  // Première séance connue = référence, meilleure séance = record.
+  // Les anciens débriefings surévaluaient le gainage, mais référence et record
+  // l'étaient de la même façon : le rapport entre les deux reste juste.
+  const base={}, best={};
+  const parDate=[...(S.analyses||[])].sort((a,b)=>(a.ts||0)-(b.ts||0));
+  for(const a of parDate){
     const pz=(a.bilan&&a.bilan.parZone)||null;
     if(!pz) continue;
     for(const [z,v] of Object.entries(pz)){
-      const s=v/10;
-      if(!best[z]||s>best[z]) best[z]=s;
+      const sc=v/10;
+      if(base[z]===undefined) base[z]=sc;
+      if(!best[z]||sc>best[z]) best[z]=sc;
     }
   }
   for(const [z,m] of Object.entries(S.muscles||{})){
-    if(m.record===undefined) m.record=Math.round((best[z]||0)*10)/10;
+    m.base=Math.round((base[z]||0)*10)/10;
+    m.record=Math.round((best[z]||m.base||0)*10)/10;
   }
-  S._migRec=true;
+  S._migBase=true;
 }
 function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0); }
 let BOOT=true;
@@ -1149,19 +1155,27 @@ const ZONES = [
   ["abdos","Abdos","ABD"],
   ["jambes","Jambes & Fessiers","JBS"],
 ];
-/* Le rang d'une zone reflète ta MEILLEURE séance sur cette zone, pas le total
-   accumulé : répéter la même séance maintient le rang, le dépasser le fait monter.
+/* Le rang d'une zone mesure ta PROGRESSION depuis ta première séance sur cette
+   zone, pas un volume absolu : on démarre Novice partout et on monte en
+   dépassant sa propre référence. Le rang ne dépend donc plus du nombre
+   d'exercices qui visent la zone.
    Score d'une séance pour une zone = Σ (séries faites × reps × charge) / 10,
    réparti entre les zones travaillées par l'exercice. */
 const GRADES = [
-  {pts:0,   g:"E",  nom:"Novice"},
-  {pts:25,  g:"D",  nom:"Apprenti"},
-  {pts:45,  g:"C",  nom:"Confirmé"},
-  {pts:75,  g:"B",  nom:"Aguerri"},
-  {pts:115, g:"A",  nom:"Élite"},
-  {pts:165, g:"S",  nom:"Maître"},
-  {pts:230, g:"SS", nom:"Légende"},
+  {pts:1.00, g:"E",  nom:"Novice"},
+  {pts:1.15, g:"D",  nom:"Apprenti"},
+  {pts:1.35, g:"C",  nom:"Confirmé"},
+  {pts:1.60, g:"B",  nom:"Aguerri"},
+  {pts:1.90, g:"A",  nom:"Élite"},
+  {pts:2.30, g:"S",  nom:"Maître"},
+  {pts:2.80, g:"SS", nom:"Légende"},
 ];
+// progression d'une zone : meilleure séance rapportée à la séance de référence
+function ratioZone(m){
+  if(!m||!m.base||m.base<=0) return 1;
+  if((m.n||0)<2) return 1;              // deux séances minimum avant de classer
+  return Math.max(1,(m.record||0)/m.base);
+}
 function gradeDe(score){
   let cur=GRADES[0], next=null;
   for(let i=0;i<GRADES.length;i++){
@@ -1256,21 +1270,22 @@ function crediterMuscles(s, setsMap){
   const auj=todayKey();
   const bonus=[];
   for(const [z,v] of Object.entries(scores)){
-    const m=S.muscles[z]??={pts:0,last:null,n:0,record:0};
+    const m=S.muscles[z]??={pts:0,last:null,n:0,record:0,base:0};
     if(m.record===undefined) m.record=0;
-    const avant=gradeDe(m.record).cur.g;
-    if(v>m.record) m.record=Math.round(v*10)/10;   // seul un dépassement fait monter le rang
+    const avant=gradeDe(ratioZone(m)).cur.g;
+    if(!m.base||m.base<=0) m.base=Math.round(v*10)/10;   // première séance : la référence
+    if(v>m.record) m.record=Math.round(v*10)/10;         // seul un dépassement fait monter
     m.pts=Math.round((m.pts+v)*10)/10;             // volume cumulé, conservé à titre indicatif
     if(m.last){
       const jours=(new Date(auj)-new Date(m.last))/864e5;
       if(jours>=1 && jours<=7) bonus.push(z);      // régularité : signalée, sans gonfler le rang
     }
     m.last=auj; m.n++;
-    const apres=gradeDe(m.record).cur.g;
+    const apres=gradeDe(ratioZone(m)).cur.g;
     if(apres!==avant){
       const zl=ZONES.find(x=>x[0]===z);
       const gr=GRADES.find(x=>x.g===apres);
-      setTimeout(()=>toast(`${zl[1]} passe au niveau ${apres} — ${gr.nom}`,"Aptitude relevée"),2200);
+      setTimeout(()=>toast(`${zl[1]} passe au niveau ${apres} — ${gr.nom}`,"Progression confirmée"),2200);
     }
   }
   save();
@@ -1295,7 +1310,7 @@ function appliquerGains(gains){
     if(apres!==avant){
       const zl=ZONES.find(x=>x[0]===z);
       const gr=GRADES.find(x=>x.g===apres);
-      setTimeout(()=>toast(`${zl[1]} passe au niveau ${apres} — ${gr.nom}`,"Aptitude relevée"),2200);
+      setTimeout(()=>toast(`${zl[1]} passe au niveau ${apres} — ${gr.nom}`,"Progression confirmée"),2200);
     }
   }
   return bonus;
@@ -1303,7 +1318,8 @@ function appliquerGains(gains){
 function zoneFaible(){
   let min=null;
   for(const [id] of ZONES){
-    const p=S.muscles[id]?.record||0;
+    const m=S.muscles[id]||{n:0};
+    const p=(m.n||0)===0 ? -1 : ratioZone(m);   // jamais travaillée = prioritaire
     if(min===null || p<min.p) min={id,p};
   }
   return min?.id;
@@ -1343,10 +1359,11 @@ function renderMuscles(){
   const faible=zoneFaible();
   const idxOf=g=>GRADES.findIndex(x=>x.g===g.g);
   w.innerHTML=ZONES.map(([id,label,ico])=>{
-    const m=S.muscles[id]||{pts:0,last:null,n:0,record:0};
-    const rec=m.record||0;
-    const {cur,next}=gradeDe(rec);
-    const pct=next?Math.min(100,Math.round((rec-cur.pts)/(next.pts-cur.pts)*100)):100;
+    const m=S.muscles[id]||{pts:0,last:null,n:0,record:0,base:0};
+    const r=ratioZone(m);
+    const {cur,next}=gradeDe(r);
+    const pct=next?Math.min(100,Math.round((r-cur.pts)/(next.pts-cur.pts)*100)):100;
+    const gain=Math.round((r-1)*100);
     const dernier=m.last?fmtDate(m.last):"jamais";
     const ri=idxOf(cur);
     const rc=ri>=5?"var(--signal)":ri>=4?"var(--signal-deep)":ri>=2?"var(--foret)":"var(--sapin)";
@@ -1354,7 +1371,9 @@ function renderMuscles(){
       <div class="cote-head"><span><span class="zcode">[${ico}]</span>${label}</span>
         <span class="cote-grade" style="color:${rc}">${cur.g==="SS"?"★":""}${cur.g}<small class="cote-titre">${cur.nom}</small></span></div>
       <div class="cote-bar"><i style="width:${pct}%"></i></div>
-      <div class="cote-meta">${next?`meilleure séance ${Math.round(rec)} · ${next.pts} pour le niv. ${next.g}`:`meilleure séance ${Math.round(rec)} — niveau max`} · ${m.n} mission${m.n>1?"s":""} · dernier : ${dernier}</div>
+      <div class="cote-meta">${(m.n||0)<2
+        ? `${m.n||0} séance${(m.n||0)>1?"s":""} — deux séances requises pour situer ton niveau`
+        : `${gain>0?"+"+gain+" % depuis le départ":"au niveau de départ"}${next?` · +${Math.round((next.pts-1)*100)} % pour le niv. ${next.g}`:" · niveau max"}`} · ${m.n} mission${m.n>1?"s":""} · dernier : ${dernier}</div>
       ${id===faible?`<div class="hand" style="font-size:16px">▶ zone prioritaire cette semaine</div>`:""}
     </div>`;
   }).join("");
@@ -3624,6 +3643,7 @@ function fusion(L,R){
     out.muscles[z]={
       pts:Math.max(a.pts||0,b.pts||0),
       record:Math.max(a.record||0,b.record||0),
+      base:(a.base&&b.base)?Math.min(a.base,b.base):(a.base||b.base||0),
       n:Math.max(a.n||0,b.n||0),
       last:[a.last,b.last].filter(Boolean).sort().pop()||null
     };

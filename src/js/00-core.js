@@ -97,20 +97,26 @@ function migrerProfil(){
   S._migProfil=true;
 }
 function migrerRecords(){
-  if(S._migRec) return;
-  const best={};
-  for(const a of (S.analyses||[])){
+  if(S._migBase) return;
+  // Première séance connue = référence, meilleure séance = record.
+  // Les anciens débriefings surévaluaient le gainage, mais référence et record
+  // l'étaient de la même façon : le rapport entre les deux reste juste.
+  const base={}, best={};
+  const parDate=[...(S.analyses||[])].sort((a,b)=>(a.ts||0)-(b.ts||0));
+  for(const a of parDate){
     const pz=(a.bilan&&a.bilan.parZone)||null;
     if(!pz) continue;
     for(const [z,v] of Object.entries(pz)){
-      const s=v/10;
-      if(!best[z]||s>best[z]) best[z]=s;
+      const sc=v/10;
+      if(base[z]===undefined) base[z]=sc;
+      if(!best[z]||sc>best[z]) best[z]=sc;
     }
   }
   for(const [z,m] of Object.entries(S.muscles||{})){
-    if(m.record===undefined) m.record=Math.round((best[z]||0)*10)/10;
+    m.base=Math.round((base[z]||0)*10)/10;
+    m.record=Math.round((best[z]||m.base||0)*10)/10;
   }
-  S._migRec=true;
+  S._migBase=true;
 }
 function totalAlt(){ return Object.values(S.alt||{}).reduce((a,b)=>a+(+b||0),0); }
 let BOOT=true;
